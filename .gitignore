@@ -11,3 +11,22 @@ apps/main-server/storage/
 packages/vector-store-core/storage/
 _tmp_*
 $null
+
+# runtime / generated data
+apps/main-server/storage/
+packages/vector-store-core/storage/
+.lancedb/
+
+# large audit artifacts
+audit/**/05_commands_output.txt
+audit/**/06_error_files_bundle*
+audit/**/*.tar.gz
+
+# temp files
+_tmp_*
+$null
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
