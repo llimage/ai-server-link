@@ -1,0 +1,11 @@
+﻿Test 脚本修复：
+- 将 "tsx --test src/**/*.test.ts" 统一调整为 "tsx --test src"
+- 覆盖包：apps/main-server、apps/agent-runtime、packages/embedding-core、vector-store-core、shared-types、search-core、ingestion-core、memory-core、model-core、plans-core、protocol、records-core、runtime-core、scheduler-core、tool-core
+
+TypeScript 编译阻塞修复：
+- packages/vector-store-core/src/lancedb-vector-store.ts
+  .filter((row) => ...) 改为 .filter((row: any) => ...)
+
+验证说明：
+- 计划执行 pnpm --filter main-server test / pnpm -r test
+- 由于 corepack 缺失，测试命令未能实际执行

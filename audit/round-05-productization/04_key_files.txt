@@ -1,0 +1,11 @@
+Key files audited (status):
+- apps/main-server/src/modules/ingestion/services/embedding-provider.ts (audited, unchanged)
+- apps/main-server/src/modules/ingestion/services/vector-index.writer.ts (audited, unchanged)
+- packages/vector-store-core/src/lancedb-vector-store.ts (modified: LanceDB implementation + small-dataset fallback)
+- apps/main-server/src/modules/search/services/vector-search.adapter.ts (modified earlier: removed keyword fallback)
+- packages/search-core/src/search-service.ts (audited, unchanged)
+- packages/search-core/src/hybrid-merge.ts (modified earlier: RRF fusion)
+- packages/search-core/src/hybrid-merge.test.ts (modified earlier: expectations updated)
+- apps/main-server/src/tests/search-hybrid.e2e.spec.ts (modified: real vector/keyword/hybrid assertions)
+- apps/main-server/src/internal-tools.test.ts (modified: debug keyword/vector counts)
+- apps/main-server/src/tests/knowledge-test.utils.ts (modified earlier: removed temporary logs)

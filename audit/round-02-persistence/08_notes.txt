@@ -1,0 +1,21 @@
+﻿实现说明（本轮仅收尾验收，不新增功能）：
+- 已重新执行 migrate/seed/test
+- 已执行四张关键日志表的抽查命令
+- 已将本轮原始输出追加到 05_commands_output.txt
+
+与任务单不一致的地方：
+- 任务单前提为 DATABASE_URL 可用，但当前会话实际不可用，导致 migrate/seed/表抽查无法成功
+- 因此 persistence 用例仍为 skip，未实现“真实执行通过”目标
+
+必要上下文说明：
+- 严格遵守“只做数据库环境闭环验收，不做新功能”
+- 下一步只需补齐 DATABASE_URL 并原命令复跑即可完成第2阶段收尾
+
+【2026-04-13 追加】
+实现说明：
+- UserMetaRepository.upsertMany 改为基于 (userId, key) 的 upsert。
+- 多处测试改为使用独立标识或包含性断言，避免实库数据隔离问题。
+
+执行说明：
+- corepack pnpm --filter main-server test 与 corepack pnpm -r test 均因 spawn EPERM 失败。
+- 当前失败为环境权限问题，非代码逻辑失败。

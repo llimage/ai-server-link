@@ -1,0 +1,1843 @@
+﻿
+===== VECTOR HYBRID DEBUG BUNDLE =====
+GeneratedAt: 2026-04-14 13:22:46
+PWD: D:\health-manager\ai-server-link
+Node: v24.14.1
+Pnpm: 9.15.0
+
+===== FILE: packages\vector-store-core\src\lancedb-vector-store.ts =====
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+export interface LanceDbConfig {
+  uri?: string;
+  tableName?: string;
+  vectorColumn?: string;
+}
+
+type StoredRow = {
+  id: string;
+  chunkId: string;
+  tenantId?: string;
+  text: string;
+  vector: number[];
+  metadata?: Record<string, unknown>;
+  sourceId?: string;
+  documentId?: string;
+};
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length === 0 || b.length === 0 || a.length !== b.length) {
+    return -1;
+  }
+
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i += 1) {
+    const av = a[i] ?? 0;
+    const bv = b[i] ?? 0;
+    dot += av * bv;
+    normA += av * av;
+    normB += bv * bv;
+  }
+
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  if (denom === 0) return -1;
+  return dot / denom;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function asVector(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((n) => Number(n)).filter((n) => Number.isFinite(n));
+}
+
+export class LanceDbVectorStore {
+  private readonly uri: string;
+  private readonly tableName: string;
+  private readonly vectorColumn: string;
+  private filePath: string | null = null;
+
+  constructor(config: LanceDbConfig = {}) {
+    this.uri = config.uri ?? "./.lancedb";
+    this.tableName = config.tableName ?? "vectors";
+    this.vectorColumn = config.vectorColumn ?? "vector";
+    void this.vectorColumn;
+  }
+
+  private async ensureReady(): Promise<void> {
+    if (this.filePath) return;
+
+    const rootDir = path.resolve(this.uri);
+    await mkdir(rootDir, { recursive: true });
+    this.filePath = path.join(rootDir, `${this.tableName}.json`);
+
+    try {
+      await readFile(this.filePath, "utf8");
+    } catch {
+      await writeFile(this.filePath, "[]", "utf8");
+    }
+  }
+
+  private async readRows(): Promise<StoredRow[]> {
+    await this.ensureReady();
+    const raw = await readFile(this.filePath!, "utf8");
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  }
+
+  private async writeRows(rows: StoredRow[]): Promise<void> {
+    await this.ensureReady();
+    await writeFile(this.filePath!, JSON.stringify(rows, null, 2), "utf8");
+  }
+
+  async upsert(records: any[]): Promise<void> {
+    await this.ensureReady();
+    if (!records?.length) return;
+
+    const existing = await this.readRows();
+    const byId = new Map<string, StoredRow>();
+
+    for (const row of existing) {
+      byId.set(row.id, row);
+    }
+
+    for (const r of records) {
+      const metadata = (r?.metadata ?? {}) as Record<string, unknown>;
+
+      const id = String(
+        r?.id ??
+        r?.chunkId ??
+        metadata.chunkId ??
+        metadata.id
+      );
+
+      const chunkId = String(
+        r?.chunkId ??
+        metadata.chunkId ??
+        r?.id ??
+        metadata.id
+      );
+
+      const tenantId =
+  asString(r?.tenantId) ??
+  asString(r?.tenant_id) ??
+  asString(metadata.tenantId) ??
+  asString(metadata.tenant_id) ??
+  "tenant-default";
+
+      const text =
+        asString(r?.text) ??
+        asString(r?.content) ??
+        asString(metadata.text) ??
+        "";
+
+      const vector =
+        asVector(r?.vector).length > 0
+          ? asVector(r?.vector)
+          : asVector(r?.values);
+
+      byId.set(id, {
+        id,
+        chunkId,
+        tenantId,
+        text,
+        vector,
+        metadata,
+        sourceId: asString(r?.sourceId) ?? asString(metadata.sourceId) ?? "",
+        documentId: asString(r?.documentId) ?? asString(metadata.documentId) ?? "",
+      });
+    }
+
+    await this.writeRows(Array.from(byId.values()));
+  }
+
+  async query(query: any): Promise<any[]> {
+    await this.ensureReady();
+
+    const { vector, topK = 5, tenantId } = query ?? {};
+    const rows = await this.readRows();
+
+    const filtered = rows.filter((r) => {
+      if (tenantId && r.tenantId !== tenantId) return false;
+      return Array.isArray(r.vector) && r.vector.length > 0;
+    });
+
+    const scored = filtered.map((r) => ({
+      row: r,
+      score: cosineSimilarity(vector, r.vector),
+    }));
+
+    const ranked = scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topK);
+
+    console.log("[vector-store][debug]", {
+      tenantId,
+      totalRows: rows.length,
+      filteredRows: filtered.length,
+      queryVectorLength: Array.isArray(vector) ? vector.length : -1,
+      topScores: ranked.map((x) => ({
+        chunkId: x.row.chunkId,
+        tenantId: x.row.tenantId,
+        score: x.score,
+        textPreview: x.row.text?.slice?.(0, 60),
+      })),
+    });
+
+    return ranked.map(({ row, score }) => ({
+      chunkId: row.chunkId,
+      score,
+      text: row.text,
+      metadata: row.metadata ?? {},
+      sourceId: row.sourceId,
+      documentId: row.documentId,
+    }));
+  }
+}
+
+
+
+
+===== FILE: packages\vector-store-core\src\index.ts =====
+export type {
+  VectorQuery,
+  VectorRecord,
+  VectorSearchResult,
+  VectorStore
+} from "./vector-store-types";
+
+export {
+  LanceDbVectorStore,
+  type LanceDbConfig
+} from "./lancedb-vector-store";
+
+
+===== FILE: packages\search-core\src\search-service.ts =====
+/**
+ * Search Core 涓荤紪鎺掓湇鍔? *
+ * 鎵€灞炴ā鍧楋細
+ * * search-core
+ *
+ * 鏂囦欢浣滅敤锛? * * 缂栨帓 query/filter 褰掍竴鍖栥€佸彫鍥炪€佸悎骞躲€乺erank 涓庢棩蹇楀啓鍏? *
+ * 涓昏鍔熻兘锛? * * query
+ *
+ * 渚濊禆锛? * * protocol 鎼滅储鍗忚
+ * * search-profile
+ * * normalizer / adapter / merge / rerank / log
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 璇ユ湇鍔″彧鍋氭悳绱㈣兘鍔涚紪鎺掞紝涓嶆壙杞?HTTP 涓庤涓氫笟鍔￠€昏緫
+ */
+
+import type {
+  SearchMode,
+  SearchQueryRequest,
+  SearchQueryResponse,
+  SearchResultItem,
+} from "protocol";
+import { normalizeFilters } from "./filter-normalizer";
+import { mergeHybridHits } from "./hybrid-merge";
+import type { KeywordSearchAdapter } from "./keyword-search";
+import { normalizeQuery } from "./query-normalizer";
+import type { RetrievalLogSink } from "./retrieval-log";
+import type { RerankAdapter } from "./rerank";
+import {
+  getDefaultSearchProfile,
+  type SearchProfile,
+} from "./search-profile";
+import type { MergedHit } from "./search-types";
+import type { VectorSearchAdapter } from "./vector-search";
+
+/**
+ * SearchService 鏋勯€犱緷璧? */
+export interface SearchServiceDeps {
+  keywordAdapter: KeywordSearchAdapter;
+  vectorAdapter: VectorSearchAdapter;
+  rerankAdapter: RerankAdapter;
+  retrievalLogSink: RetrievalLogSink;
+  searchProfileProvider?: (profileId?: string) => SearchProfile;
+}
+
+/**
+ * 鎼滅储鏈嶅姟
+ *
+ * 鍔熻兘璇存槑锛? * * 鎻愪緵缁熶竴 query 鑳藉姏锛屾敮鎸?keyword/vector/hybrid 妯″紡
+ */
+export class SearchService {
+  /**
+   * 鏋勯€犳悳绱㈡湇鍔?   *
+   * @param deps 渚濊禆闆嗗悎
+   */
+  constructor(private readonly deps: SearchServiceDeps) {}
+
+  /**
+   * 鎵ц鎼滅储
+   *
+   * 鍔熻兘璇存槑锛?   * * 鎸夎姹傛ā寮忔墽琛屽彫鍥炪€佸悎骞躲€乺erank锛屽苟杈撳嚭鏍囧噯缁撴瀯
+   *
+   * @param request 鎼滅储璇锋眰
+   * @returns 鎼滅储鍝嶅簲
+   */
+  async query(request: SearchQueryRequest): Promise<SearchQueryResponse> {
+    const startedAt = Date.now();
+    const profile = this.resolveProfile(request.profileId);
+    const normalizedQuery = normalizeQuery(request.query);
+    const normalizedFilters = normalizeFilters(request.filters);
+    const mode = this.resolveMode(request.mode, profile);
+    const topK = this.resolveTopK(request.topK, profile);
+
+    let keywordHits = [] as Awaited<
+      ReturnType<KeywordSearchAdapter["search"]>
+    >;
+    let vectorHits = [] as Awaited<ReturnType<VectorSearchAdapter["search"]>>;
+    let merged = [] as MergedHit[];
+
+    if (mode === "keyword") {
+      keywordHits = await this.deps.keywordAdapter.search({
+        space: request.space,
+        query: normalizedQuery,
+        filters: normalizedFilters,
+        topK,
+      });
+      merged = keywordHits.map((item) => ({
+        id: item.id,
+        score: item.score,
+        text: item.text,
+        metadata: item.metadata,
+        keywordScore: item.score,
+        vectorScore: 0,
+      }));
+    } else if (mode === "vector") {
+      vectorHits = await this.deps.vectorAdapter.search({
+        space: request.space,
+        query: normalizedQuery,
+        filters: normalizedFilters,
+        topK,
+        profile,
+      });
+      merged = vectorHits.map((item) => ({
+        id: item.id,
+        score: item.score,
+        text: item.text,
+        metadata: item.metadata,
+        keywordScore: 0,
+        vectorScore: item.score,
+      }));
+    } else {
+      keywordHits = await this.deps.keywordAdapter.search({
+        space: request.space,
+        query: normalizedQuery,
+        filters: normalizedFilters,
+        topK,
+      });
+      vectorHits = await this.deps.vectorAdapter.search({
+        space: request.space,
+        query: normalizedQuery,
+        filters: normalizedFilters,
+        topK,
+        profile,
+      });
+      merged = mergeHybridHits(keywordHits, vectorHits, {
+        keywordWeight: profile.search.keywordWeight,
+        vectorWeight: profile.search.vectorWeight,
+      });
+    }
+
+    let rerankApplied = false;
+    if (profile.search.rerankEnabled && merged.length > 0) {
+      merged = await this.deps.rerankAdapter.rerank({
+        query: normalizedQuery,
+        hits: merged,
+        topN: profile.search.rerankTopN,
+      });
+      rerankApplied = true;
+    }
+
+    const items = merged.slice(0, topK).map<SearchResultItem>((item) => ({
+      id: item.id,
+      score: item.score,
+      text: item.text,
+      metadata: item.metadata,
+    }));
+    const durationMs = Date.now() - startedAt;
+
+    await this.deps.retrievalLogSink.write({
+      ts: new Date().toISOString(),
+      space: request.space,
+      query: request.query,
+      normalizedQuery: normalizedQuery.normalized,
+      filters: normalizedFilters.values,
+      mode,
+      topK,
+      keywordHits: keywordHits.length,
+      vectorHits: vectorHits.length,
+      mergedHits: merged.length,
+      rerankApplied,
+      resultCount: items.length,
+      durationMs,
+    });
+
+    return {
+      items,
+      debug: request.debug
+        ? {
+            normalizedQuery: normalizedQuery.normalized,
+            keywordHits: keywordHits.length,
+            vectorHits: vectorHits.length,
+            mergedHits: merged.length,
+            rerankApplied,
+          }
+        : undefined,
+    };
+  }
+
+  /**
+   * 瑙ｆ瀽 profile
+   *
+   * @param profileId profile ID
+   * @returns SearchProfile
+   */
+  private resolveProfile(profileId?: string): SearchProfile {
+    return this.deps.searchProfileProvider?.(profileId) ?? getDefaultSearchProfile();
+  }
+
+  /**
+   * 瑙ｆ瀽鎼滅储妯″紡
+   *
+   * @param mode 璇锋眰妯″紡
+   * @param profile 鎼滅储閰嶇疆
+   * @returns 鏈€缁堟ā寮?   */
+  private resolveMode(mode: SearchMode | undefined, profile: SearchProfile): SearchMode {
+    return mode ?? profile.search.defaultMode;
+  }
+
+  /**
+   * 瑙ｆ瀽 topK
+   *
+   * @param topK 璇锋眰 topK
+   * @param profile 鎼滅储閰嶇疆
+   * @returns 鏈€缁?topK
+   */
+  private resolveTopK(topK: number | undefined, profile: SearchProfile): number {
+    const value = topK ?? profile.search.defaultTopK;
+    if (!Number.isFinite(value) || value <= 0) {
+      return profile.search.defaultTopK;
+    }
+    return Math.floor(value);
+  }
+}
+
+
+===== FILE: packages\search-core\src\vector-search.ts =====
+/**
+ * Search Core 鍚戦噺妫€绱㈤€傞厤鍣? *
+ * 鎵€灞炴ā鍧楋細
+ * * search-core
+ *
+ * 鏂囦欢浣滅敤锛? * * 瀹氫箟鍚戦噺妫€绱㈡帴鍙ｄ笌褰撳墠鎵规 mock 瀹炵幇
+ *
+ * 涓昏鍔熻兘锛? * * VectorSearchAdapter 鎺ュ彛
+ * * MockVectorSearchAdapter 瀹炵幇
+ *
+ * 渚濊禆锛? * * search-types
+ * * search-profile
+ * * score-utils
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 褰撳墠瀹炵幇涓嶅仛鐪熷疄 embedding 鍜屽悜閲忓簱鏌ヨ
+ */
+
+import { clampScore } from "./score-utils";
+import type { SearchProfile } from "./search-profile";
+import type { NormalizedFilters, NormalizedQuery, VectorHit } from "./search-types";
+
+/**
+ * 鍚戦噺妫€绱㈤€傞厤鍣ㄦ帴鍙? */
+export interface VectorSearchAdapter {
+  search(params: {
+    space: string;
+    query: NormalizedQuery;
+    filters: NormalizedFilters;
+    topK: number;
+    profile: SearchProfile;
+  }): Promise<VectorHit[]>;
+}
+
+/**
+ * Mock 鍚戦噺妫€绱㈤€傞厤鍣? */
+export class MockVectorSearchAdapter implements VectorSearchAdapter {
+  /**
+   * 鎵ц鍚戦噺妫€绱?   *
+   * 鍔熻兘璇存槑锛?   * * 鐢熸垚鍥哄畾鏍煎紡鐨?mock 缁撴灉锛屾ā鎷熷悜閲忓彫鍥?   *
+   * @param params 鎼滅储鍙傛暟
+   * @returns 鍚戦噺鍛戒腑缁撴灉鍒楄〃
+   */
+  async search(params: {
+    space: string;
+    query: NormalizedQuery;
+    filters: NormalizedFilters;
+    topK: number;
+    profile: SearchProfile;
+  }): Promise<VectorHit[]> {
+    const { query, space, topK, profile } = params;
+    const count = Math.max(1, Math.min(3, topK));
+    const hits: VectorHit[] = [];
+    for (let index = 0; index < count; index += 1) {
+      hits.push({
+        id: `vec_${query.normalized}_${index + 1}`,
+        score: clampScore(0.75 - index * 0.12),
+        text: `vector hit ${index + 1} for "${query.normalized}"`,
+        metadata: {
+          space,
+          adapter: "mock-vector",
+          dimension: profile.embedding.dimension,
+        },
+      });
+    }
+    return hits;
+  }
+}
+
+// TODO: replace mock adapter with real pgvector/LanceDB adapter in vector phase
+
+
+
+===== FILE: packages\search-core\src\search-types.ts =====
+/**
+ * Search Core 鍐呴儴绫诲瀷瀹氫箟
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * search-core
+ *
+ * 鏂囦欢浣滅敤锛? * * 瀹氫箟 Search Core 缂栨帓杩囩▼涓娇鐢ㄧ殑涓棿绫诲瀷
+ *
+ * 涓昏鍔熻兘锛? * * 瀹氫箟 query/filter 褰掍竴鍖栫被鍨? * * 瀹氫箟 keyword/vector/merged hit 绫诲瀷
+ *
+ * 渚濊禆锛? * * 鏃? *
+ * 娉ㄦ剰浜嬮」锛? * * 璇ユ枃浠朵粎鎻忚堪鍐呴儴缁撴瀯锛屼笉鐩存帴鏆撮湶 HTTP 鍗忚
+ */
+
+/**
+ * 褰掍竴鍖栨煡璇? */
+export interface NormalizedQuery {
+  raw: string;
+  normalized: string;
+  tokens?: string[];
+}
+
+/**
+ * 褰掍竴鍖栬繃婊ゆ潯浠? */
+export interface NormalizedFilters {
+  values: Record<string, unknown>;
+}
+
+/**
+ * 鍏抽敭璇嶅彫鍥炵粨鏋? */
+export interface KeywordHit {
+  id: string;
+  score: number;
+  text: string;
+  metadata: Record<string, unknown>;
+}
+
+/**
+ * 鍚戦噺鍙洖缁撴灉
+ */
+export interface VectorHit {
+  id: string;
+  score: number;
+  text: string;
+  metadata: Record<string, unknown>;
+}
+
+/**
+ * 鍚堝苟鍚庣殑鍊欓€夌粨鏋? */
+export interface MergedHit {
+  id: string;
+  score: number;
+  text: string;
+  metadata: Record<string, unknown>;
+  keywordScore?: number;
+  vectorScore?: number;
+}
+
+
+
+===== FILE: packages\ingestion-core\src\ingestion-service.ts =====
+/**
+ * Ingestion Core 涓荤紪鎺掓湇鍔? *
+ * 鎵€灞炴ā鍧楋細
+ * * ingestion-core
+ *
+ * 鏂囦欢浣滅敤锛? * * 涓茶仈 upload/parse/chunk/embed/index/publish 鍏ㄩ樁娈垫祦绋? *
+ * 涓昏鍔熻兘锛? * * upload
+ * * parse
+ * * chunk
+ * * embed
+ * * index
+ * * publish
+ *
+ * 渚濊禆锛? * * protocol ingestion 鍗忚
+ * * ingestion store/log/state
+ * * parser/chunker/embedder/indexer/publisher
+ * * search-core profile
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 涓ユ牸鎵ц鐘舵€佹満锛屼笉鍏佽璺抽樁娈? */
+
+import { randomUUID } from "node:crypto";
+import type {
+  IngestionStageRequest,
+  IngestionStageResponse,
+  IngestionUploadRequest,
+  IngestionUploadResponse,
+} from "protocol";
+import { getDefaultSearchProfile, type SearchProfile } from "search-core";
+import { chunkText } from "./chunker/chunker";
+import type { Embedder } from "./embedder/embedder";
+import { assertValidIngestionTransition } from "./ingestion-state";
+import type { IngestionLogSink } from "./ingestion-log";
+import type { IngestionTaskStore } from "./ingestion-task-store";
+import type { IngestionStage, IngestionTask, KnowledgeSourceRecord } from "./ingestion-types";
+import type { Indexer } from "./indexer/indexer";
+import type { TextParser } from "./parser/text-parser";
+import type { Publisher } from "./publisher/publisher";
+import type { KnowledgeSourceStore } from "./source-store";
+
+/**
+ * IngestionService 渚濊禆闆嗗悎
+ */
+export interface IngestionServiceDeps {
+  taskStore: IngestionTaskStore;
+  sourceStore: KnowledgeSourceStore;
+  logSink: IngestionLogSink;
+  parser: TextParser;
+  embedder: Embedder;
+  indexer: Indexer;
+  publisher: Publisher;
+  searchProfileProvider?: (profileId?: string) => SearchProfile;
+}
+
+/**
+ * 鎽勫叆缂栨帓鏈嶅姟
+ */
+export class IngestionService {
+  /**
+   * 鏋勯€犳湇鍔?   *
+   * @param deps 渚濊禆闆嗗悎
+   */
+  constructor(private readonly deps: IngestionServiceDeps) {}
+
+  /**
+   * 涓婁紶鐭ヨ瘑婧?   *
+   * @param req 涓婁紶璇锋眰
+   * @returns 涓婁紶鍝嶅簲
+   */
+  async upload(req: IngestionUploadRequest): Promise<IngestionUploadResponse> {
+    const sourceId = req.sourceId ?? `src_${randomUUID()}`;
+    const taskId = `task_${randomUUID()}`;
+    const now = new Date().toISOString();
+
+    try {
+      const source: KnowledgeSourceRecord = {
+        sourceId,
+        rawText: req.rawText,
+        fileUri: req.fileUri,
+        mimeType: req.mimeType,
+        metadata: req.metadata,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const task: IngestionTask = {
+        taskId,
+        sourceId,
+        stage: "uploaded",
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.deps.sourceStore.set(source);
+      await this.deps.taskStore.set(task);
+      await this.writeLog(task, "uploaded");
+      return { sourceId, taskId, status: "uploaded" };
+    } catch (error) {
+      return {
+        sourceId,
+        taskId,
+        status: "failed",
+        message: error instanceof Error ? error.message : "Upload failed",
+      };
+    }
+  }
+
+  /**
+   * 鎵ц parse 闃舵
+   *
+   * @param sourceId 鐭ヨ瘑婧?ID
+   * @param taskId 浠诲姟 ID
+   * @returns 闃舵鍝嶅簲
+   */
+  async parse(sourceId: string, taskId: string): Promise<IngestionStageResponse> {
+    return this.runStage(sourceId, taskId, "parsed", async (source) => {
+      const parsedText = await this.deps.parser.parse(source);
+      source.parsedText = parsedText;
+    });
+  }
+
+  /**
+   * 鎵ц chunk 闃舵
+   *
+   * @param sourceId 鐭ヨ瘑婧?ID
+   * @param taskId 浠诲姟 ID
+   * @returns 闃舵鍝嶅簲
+   */
+  async chunk(sourceId: string, taskId: string): Promise<IngestionStageResponse> {
+    return this.runStage(sourceId, taskId, "chunked", async (source) => {
+      const profile = this.resolveProfile();
+      const parsedText = source.parsedText?.trim();
+      if (!parsedText) {
+        throw new Error("Source parsedText is empty");
+      }
+      const chunks = chunkText(parsedText, {
+        targetTokens: profile.chunk.targetTokens,
+        overlapTokens: profile.chunk.overlapTokens,
+      });
+      if (!chunks.length) {
+        throw new Error("Chunking produced empty result");
+      }
+      source.chunks = chunks;
+    });
+  }
+
+  /**
+   * 鎵ц embed 闃舵
+   *
+   * @param sourceId 鐭ヨ瘑婧?ID
+   * @param taskId 浠诲姟 ID
+   * @param profileId 閰嶇疆 ID
+   * @returns 闃舵鍝嶅簲
+   */
+  async embed(
+    sourceId: string,
+    taskId: string,
+    profileId?: string,
+  ): Promise<IngestionStageResponse> {
+    return this.runStage(sourceId, taskId, "embedded", async (source) => {
+      if (!source.chunks || !source.chunks.length) {
+        throw new Error("Source chunks are empty");
+      }
+      const vectors = await this.deps.embedder.embed(source.chunks, profileId);
+      source.embeddings = vectors;
+    });
+  }
+
+  /**
+   * 鎵ц index 闃舵
+   *
+   * @param sourceId 鐭ヨ瘑婧?ID
+   * @param taskId 浠诲姟 ID
+   * @returns 闃舵鍝嶅簲
+   */
+  async index(sourceId: string, taskId: string): Promise<IngestionStageResponse> {
+    return this.runStage(sourceId, taskId, "indexed", async (source) => {
+      if (!source.chunks?.length || !source.embeddings?.length) {
+        throw new Error("Source chunks or embeddings are empty");
+      }
+      await this.deps.indexer.index({
+        sourceId: source.sourceId,
+        chunks: source.chunks,
+        embeddings: source.embeddings,
+        metadata: source.metadata,
+      });
+      source.indexed = true;
+    });
+  }
+
+  /**
+   * 鎵ц publish 闃舵
+   *
+   * @param sourceId 鐭ヨ瘑婧?ID
+   * @param taskId 浠诲姟 ID
+   * @returns 闃舵鍝嶅簲
+   */
+  async publish(sourceId: string, taskId: string): Promise<IngestionStageResponse> {
+    return this.runStage(sourceId, taskId, "published", async (source) => {
+      await this.deps.publisher.publish(source.sourceId);
+      source.published = true;
+    });
+  }
+
+  /**
+   * 閫氱敤闃舵鎵ц鍣?   *
+   * @param sourceId 鐭ヨ瘑婧?ID
+   * @param taskId 浠诲姟 ID
+   * @param targetStage 鐩爣闃舵
+   * @param mutator 瀵?source 鐨勫彉鏇存搷浣?   * @returns 闃舵鍝嶅簲
+   */
+  private async runStage(
+    sourceId: string,
+    taskId: string,
+    targetStage: Exclude<IngestionStage, "uploaded" | "failed">,
+    mutator: (source: KnowledgeSourceRecord) => Promise<void>,
+  ): Promise<IngestionStageResponse> {
+    const task = await this.mustGetTask(taskId);
+    const source = await this.mustGetSource(sourceId);
+
+    if (task.sourceId !== sourceId) {
+      return this.failStage(task, source, "Task source mismatch");
+    }
+
+    try {
+      assertValidIngestionTransition(task.stage, targetStage);
+      await mutator(source);
+      source.updatedAt = new Date().toISOString();
+      await this.deps.sourceStore.set(source);
+
+      task.stage = targetStage;
+      task.updatedAt = new Date().toISOString();
+      task.errorMessage = undefined;
+      await this.deps.taskStore.set(task);
+      await this.writeLog(task, targetStage);
+      return {
+        sourceId,
+        taskId,
+        status: targetStage,
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? [error.message, error.stack].filter(Boolean).join("\n")
+          : "Stage failed";
+      return this.failStage(
+        task,
+        source,
+        message,
+      );
+    }
+  }
+
+  /**
+   * 闃舵澶辫触澶勭悊
+   *
+   * @param task 鎽勫叆浠诲姟
+   * @param source 鐭ヨ瘑婧愯褰?   * @param message 閿欒淇℃伅
+   * @returns 闃舵鍝嶅簲
+   */
+  private async failStage(
+    task: IngestionTask,
+    source: KnowledgeSourceRecord,
+    message: string,
+  ): Promise<IngestionStageResponse> {
+    task.stage = "failed";
+    task.updatedAt = new Date().toISOString();
+    task.errorMessage = message;
+    source.updatedAt = new Date().toISOString();
+    await this.deps.taskStore.set(task);
+    await this.deps.sourceStore.set(source);
+    await this.writeLog(task, "failed", message);
+    return {
+      sourceId: source.sourceId,
+      taskId: task.taskId,
+      status: "failed",
+      message,
+    };
+  }
+
+  /**
+   * 璇诲彇 profile
+   *
+   * @param profileId 閰嶇疆 ID
+   * @returns SearchProfile
+   */
+  private resolveProfile(profileId?: string): SearchProfile {
+    return this.deps.searchProfileProvider?.(profileId) ?? getDefaultSearchProfile();
+  }
+
+  /**
+   * 蹇呴』鑾峰彇浠诲姟
+   *
+   * @param taskId 浠诲姟 ID
+   * @returns 浠诲姟
+   */
+  private async mustGetTask(taskId: string): Promise<IngestionTask> {
+    const task = await this.deps.taskStore.get(taskId);
+    if (!task) {
+      throw new Error("Task not found");
+    }
+    return task;
+  }
+
+  /**
+   * 蹇呴』鑾峰彇鐭ヨ瘑婧?   *
+   * @param sourceId 鐭ヨ瘑婧?ID
+   * @returns 鐭ヨ瘑婧?   */
+  private async mustGetSource(sourceId: string): Promise<KnowledgeSourceRecord> {
+    const source = await this.deps.sourceStore.get(sourceId);
+    if (!source) {
+      throw new Error("Source not found");
+    }
+    return source;
+  }
+
+  /**
+   * 鍐欏叆鏃ュ織
+   *
+   * @param task 浠诲姟
+   * @param stage 闃舵
+   * @param message 闄勫姞娑堟伅
+   * @returns void
+   */
+  private async writeLog(
+    task: IngestionTask,
+    stage: IngestionStage,
+    message?: string,
+  ): Promise<void> {
+    await this.deps.logSink.write({
+      ts: new Date().toISOString(),
+      taskId: task.taskId,
+      sourceId: task.sourceId,
+      stage,
+      message,
+    });
+  }
+}
+
+
+===== FILE: apps\main-server\src\modules\search\services\vector-search.adapter.ts =====
+import { DeterministicEmbeddingProvider } from "embedding-core";
+import type { SearchProfile } from "search-core";
+import type { NormalizedFilters, NormalizedQuery, VectorHit, VectorSearchAdapter } from "search-core";
+import { KnowledgeRepository } from "../../../repositories/knowledge.repository";
+import { VectorIndexRepository } from "../../../repositories/vector-index.repository";
+
+export class LanceDbVectorSearchAdapter implements VectorSearchAdapter {
+  private readonly provider = new DeterministicEmbeddingProvider();
+
+  constructor(
+    private readonly knowledgeRepository: KnowledgeRepository,
+    private readonly vectorRepository: VectorIndexRepository,
+  ) {}
+
+  async search(params: {
+    space: string;
+    query: NormalizedQuery;
+    filters: NormalizedFilters;
+    topK: number;
+    profile: SearchProfile;
+  }): Promise<VectorHit[]> {
+    const dimension = params.profile.embedding.dimension;
+
+    const embedding = await this.provider.embed({
+      texts: [params.query.normalized],
+      dimension,
+      providerName: "deterministic",
+    });
+
+    const tenantId = resolveTenantId(params.filters.values);
+
+    let rawHits: any[] = [];
+
+    try {
+      rawHits = await this.vectorRepository.query({
+        vector: embedding.vectors[0],
+        topK: params.topK,
+        tenantId,
+      });
+    } catch (err: any) {
+      console.warn("[vector-search] fallback triggered:", err?.message || err);
+      return [];
+    }
+
+    if (!rawHits.length) {
+      console.log("[vector-search][debug] empty rawHits", {
+        tenantId,
+        query: params.query.normalized,
+        dimension,
+        embeddingSample: embedding.vectors[0]?.slice?.(0, 8),
+      });
+      return [];
+    }
+
+    const publishedIds = await this.knowledgeRepository.getPublishedChunkIds(
+      rawHits.map((hit) => hit.chunkId),
+    );
+
+    const publishedSet = new Set(publishedIds);
+
+    return rawHits
+      .filter((hit) => publishedSet.has(hit.chunkId))
+      .map((hit) => ({
+        id: hit.chunkId,
+        score: hit.score,
+        text: hit.text,
+        metadata: {
+          ...hit.metadata,
+          sourceId: hit.sourceId,
+          documentId: hit.documentId,
+          chunkId: hit.chunkId,
+        },
+      }));
+  }
+}
+
+function resolveTenantId(filters: Record<string, unknown>): string | undefined {
+  if (typeof filters.tenant_id === "string") return filters.tenant_id;
+  if (typeof filters.tenantId === "string") return filters.tenantId;
+  return undefined;
+}
+
+
+
+
+===== FILE: apps\main-server\src\repositories\vector-index.repository.ts =====
+/**
+ * Vector Index 浠撳偍
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server/repositories
+ *
+ * 鏂囦欢浣滅敤锛? * * 灏佽鍚戦噺绱㈠紩鍐欏叆涓庢绱? * * 闅旂涓氬姟灞備笌鍚戦噺搴?SDK
+ *
+ * 涓昏鍔熻兘锛? * * upsert
+ * * query
+ *
+ * 渚濊禆锛? * * vector-store-core
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 鏈粨鍌ㄤ粎澶勭悊鍚戦噺瀛樺彇锛屼笉鍋氫笟鍔¤繃婊? */
+
+import type {
+  VectorQuery,
+  VectorRecord,
+  VectorSearchResult,
+  VectorStore,
+} from "vector-store-core";
+
+export class VectorIndexRepository {
+  constructor(private readonly store: VectorStore) {}
+
+  /**
+   * 骞傜瓑鍐欏叆鍚戦噺璁板綍
+   *
+   * 鍔熻兘璇存槑锛?   * * 璋冪敤搴曞眰 VectorStore upsert
+   *
+   * @param records 鍚戦噺璁板綍
+   * @returns void
+   */
+  async upsert(records: VectorRecord[]): Promise<void> {
+    await this.store.upsert(records);
+  }
+
+  /**
+   * 鎵ц鍚戦噺妫€绱?   *
+   * 鍔熻兘璇存槑锛?   * * 璋冪敤搴曞眰 VectorStore query
+   *
+   * @param query 鏌ヨ鍙傛暟
+   * @returns 妫€绱㈢粨鏋?   */
+  async query(query: VectorQuery): Promise<VectorSearchResult[]> {
+    return this.store.query(query);
+  }
+}
+
+
+===== FILE: apps\main-server\src\repositories\knowledge.repository.ts =====
+/**
+ * Knowledge 浠撳偍
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server/repositories
+ *
+ * 鏂囦欢浣滅敤锛? * * 灏佽 knowledge_sources/documents/chunks 琛ㄨ鍐欒兘鍔? */
+
+import type {
+  KnowledgeChunk,
+  KnowledgeDocument,
+  KnowledgeSource,
+  Prisma,
+} from "@prisma/client";
+import { PrismaService } from "../modules/database/prisma.service";
+
+export class KnowledgeRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getSourceById(sourceId: string): Promise<KnowledgeSource | null> {
+    return this.prisma.knowledgeSource.findUnique({ where: { id: sourceId } });
+  }
+
+  async upsertSource(data: Prisma.KnowledgeSourceCreateInput): Promise<KnowledgeSource> {
+    return this.prisma.knowledgeSource.upsert({
+      where: { id: data.id ?? "" },
+      create: data,
+      update: {
+        tenantId: data.tenantId,
+        fileUri: data.fileUri,
+        status: data.status,
+        metadataJson: data.metadataJson ?? undefined,
+      },
+    });
+  }
+
+  async updateSourceStatus(sourceId: string, status: string): Promise<void> {
+    await this.prisma.knowledgeSource.update({
+      where: { id: sourceId },
+      data: { status },
+    });
+  }
+
+  async updateDocumentStatusBySource(sourceId: string, status: string): Promise<void> {
+    await this.prisma.knowledgeDocument.updateMany({
+      where: { sourceId },
+      data: { status },
+    });
+  }
+
+  async createSource(data: Prisma.KnowledgeSourceCreateInput): Promise<KnowledgeSource> {
+    return this.prisma.knowledgeSource.create({ data });
+  }
+
+  async createDocument(data: Prisma.KnowledgeDocumentCreateInput): Promise<KnowledgeDocument> {
+    return this.prisma.knowledgeDocument.create({ data });
+  }
+
+  async getDocumentBySourceId(sourceId: string): Promise<KnowledgeDocument | null> {
+    return this.prisma.knowledgeDocument.findFirst({
+      where: { sourceId },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  async createChunks(data: Prisma.KnowledgeChunkCreateManyInput[]): Promise<void> {
+    if (data.length === 0) {
+      return;
+    }
+    await this.prisma.knowledgeChunk.createMany({ data });
+  }
+
+  async deleteChunksByDocumentId(documentId: string): Promise<void> {
+    await this.prisma.knowledgeChunk.deleteMany({ where: { documentId } });
+  }
+
+  async searchPublishedChunks(params: {
+    query: string;
+    tenantId?: string;
+    topK: number;
+  }): Promise<
+    Array<{
+      chunk: KnowledgeChunk;
+      document: KnowledgeDocument;
+      source: KnowledgeSource;
+    }>
+  > {
+    const tokens = params.query.split(/\s+/).filter(Boolean);
+    return this.prisma.knowledgeChunk.findMany({
+      where: {
+        document: {
+          source: {
+            status: "published",
+            tenantId: params.tenantId,
+          },
+        },
+        OR: tokens.length
+          ? tokens.map((token) => ({
+              chunkText: { contains: token, mode: "insensitive" },
+            }))
+          : [{ chunkText: { contains: params.query, mode: "insensitive" } }],
+      },
+      take: params.topK,
+      include: {
+        document: {
+          include: { source: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }).then((rows) =>
+      rows.map((row) => ({
+        chunk: row,
+        document: row.document,
+        source: row.document.source,
+      })),
+    );
+  }
+
+  async listDocumentsBySourceId(sourceId: string): Promise<KnowledgeDocument[]> {
+    return this.prisma.knowledgeDocument.findMany({
+      where: { sourceId },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  async listChunksByDocumentId(documentId: string): Promise<KnowledgeChunk[]> {
+    return this.prisma.knowledgeChunk.findMany({
+      where: { documentId },
+      orderBy: { chunkIndex: "asc" },
+    });
+  }
+
+  async getPublishedChunkIds(chunkIds: string[]): Promise<string[]> {
+    if (!chunkIds.length) {
+      return [];
+    }
+    const rows = await this.prisma.knowledgeChunk.findMany({
+      where: {
+        id: { in: chunkIds },
+        document: {
+          source: {
+            status: "published",
+          },
+        },
+      },
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
+  }
+}
+
+
+===== FILE: apps\main-server\src\tests\search-hybrid.e2e.spec.ts =====
+/**
+ * Search Hybrid E2E 娴嬭瘯
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server/tests
+ *
+ * 鏂囦欢浣滅敤锛? * * 楠岃瘉 keyword/vector/hybrid 妫€绱㈠潎鍙繑鍥炲凡鍙戝竷鐭ヨ瘑
+ * * 楠岃瘉 retrieval log 鍐欏叆鍛戒腑缁熻
+ *
+ * 涓昏鍔熻兘锛? * * ingestion pipeline
+ * * search.query (keyword/vector/hybrid)
+ *
+ * 渚濊禆锛? * * buildMainServer
+ * * knowledge-test.utils
+ * * persistence-test.utils
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 渚濊禆鐪熷疄鏁版嵁搴撲笌 LanceDB 鐜
+ */
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { buildMainServer } from "../app";
+import { hasDatabaseUrl, withPrisma } from "./persistence-test.utils";
+import { createPublishedKnowledge } from "./knowledge-test.utils";
+
+test("search hybrid modes should return published knowledge hits", async (t) => {
+  if (!hasDatabaseUrl()) {
+    t.skip("DATABASE_URL is not configured");
+    return;
+  }
+  const { app } = buildMainServer();
+  const tenantId = `tenant-hybrid-${Date.now()}`;
+  const rawText = "hybrid search knowledge text vector keyword";
+  try {
+    await createPublishedKnowledge(app, rawText, tenantId);
+
+    const keywordRes = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "keyword",
+        filters: { tenant_id: tenantId },
+        topK: 5,
+        mode: "keyword",
+      },
+    });
+    assert.equal(keywordRes.statusCode, 200);
+    const keywordBody = keywordRes.json() as { items?: unknown[] };
+    assert.ok((keywordBody.items?.length ?? 0) >= 1);
+
+    const vectorRes = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "vector",
+        filters: { tenant_id: tenantId },
+        topK: 5,
+        mode: "vector",
+      },
+    });
+    assert.equal(vectorRes.statusCode, 200);
+    const vectorBody = vectorRes.json() as { items?: unknown[] };
+    assert.ok((vectorBody.items?.length ?? 0) >= 1);
+
+    const hybridRes = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "hybrid",
+        filters: { tenant_id: tenantId },
+        topK: 5,
+        mode: "hybrid",
+      },
+    });
+    assert.equal(hybridRes.statusCode, 200);
+    const hybridBody = hybridRes.json() as { items?: unknown[] };
+    assert.ok((hybridBody.items?.length ?? 0) >= 1);
+
+    await withPrisma(async (prisma) => {
+      const logs = await prisma.retrievalLog.findMany({
+        where: { space: "knowledge" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      });
+      assert.ok(logs.length >= 1);
+      const latest = logs[0];
+      assert.ok(latest.keywordHitCount >= 0);
+      assert.ok(latest.vectorHitCount >= 0);
+      assert.ok(latest.mergedHitCount >= 0);
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+
+===== FILE: apps\main-server\src\tests\search-knowledge.e2e.spec.ts =====
+/**
+ * Search + Knowledge 鐪熻仈閫?E2E 娴嬭瘯
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server/tests
+ *
+ * 鏂囦欢浣滅敤锛? * * 楠岃瘉 ingestion 瀹屾暣娴佺▼鍚庯紝search.query 鑳芥绱㈠凡鍙戝竷鐭ヨ瘑
+ *
+ * 涓昏鍔熻兘锛? * * ingestion pipeline
+ * * search.query
+ * * retrieval log 钀藉簱
+ *
+ * 渚濊禆锛? * * buildMainServer
+ * * persistence-test.utils
+ * * knowledge-test.utils
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 渚濊禆鐪熷疄鏁版嵁搴撶幆澧? */
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { buildMainServer } from "../app";
+import { hasDatabaseUrl, withPrisma } from "./persistence-test.utils";
+import { createPublishedKnowledge } from "./knowledge-test.utils";
+
+test("search + knowledge e2e should return published knowledge hits", async (t) => {
+  if (!hasDatabaseUrl()) {
+    t.skip("DATABASE_URL is not configured");
+    return;
+  }
+  const { app } = buildMainServer();
+  const tenantId = `tenant-${Date.now()}`;
+  const rawText = "search e2e knowledge text hello runtime";
+  try {
+    const { sourceId } = await createPublishedKnowledge(app, rawText, tenantId);
+
+    const searchRes = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "hello runtime",
+        filters: { tenant_id: tenantId },
+        topK: 5,
+        mode: "keyword",
+        debug: true,
+      },
+    });
+    assert.equal(searchRes.statusCode, 200);
+    const searchBody = searchRes.json() as { items?: Array<{ id: string }> };
+    assert.ok((searchBody.items?.length ?? 0) >= 1);
+
+    await withPrisma(async (prisma) => {
+      const source = await prisma.knowledgeSource.findUnique({
+        where: { id: sourceId },
+      });
+      assert.equal(source?.status, "published");
+      const logs = await prisma.retrievalLog.findMany({
+        where: { space: "knowledge" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      });
+      assert.ok(logs.length >= 1);
+      const latest = logs[0];
+      assert.equal(latest.mode, "keyword");
+      assert.ok(latest.keywordHitCount >= 0);
+      assert.ok(latest.vectorHitCount >= 0);
+      assert.ok(latest.mergedHitCount >= 0);
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+
+===== FILE: apps\main-server\src\tests\knowledge-test.utils.ts =====
+/**
+ * Knowledge 娴嬭瘯杈呭姪宸ュ叿
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server/tests
+ *
+ * 鏂囦欢浣滅敤锛? * * 鎻愪緵涓婁紶骞跺彂甯冪煡璇嗙殑娴嬭瘯杈呭姪鍑芥暟
+ *
+ * 涓昏鍔熻兘锛? * * createPublishedKnowledge
+ *
+ * 渚濊禆锛? * * FastifyInstance
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 浠呯敤浜庢祴璇曠幆澧冿紝涓嶅寘鍚笟鍔￠€昏緫
+ */
+
+import type { FastifyInstance } from "fastify";
+
+/**
+ * 鍒涘缓骞跺彂甯冪煡璇? *
+ * 鍔熻兘璇存槑锛? * 璋冪敤 ingestion admin routes 鎵ц瀹屾暣 pipeline
+ *
+ * @param app Fastify 瀹炰緥
+ * @param rawText 鍘熷鏂囨湰
+ * @param tenantId 绉熸埛 ID
+ * @returns sourceId 涓?taskId
+ */
+export async function createPublishedKnowledge(
+  app: FastifyInstance,
+  rawText: string,
+  tenantId: string,
+): Promise<{ sourceId: string; taskId: string }> {
+  const uploadRes = await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/upload",
+    payload: {
+      rawText,
+      metadata: { tenant_id: tenantId },
+    },
+  });
+  if (uploadRes.statusCode !== 200) {
+    throw new Error(`upload failed: ${uploadRes.statusCode}`);
+  }
+  const uploadBody = uploadRes.json() as { sourceId: string; taskId: string };
+  const stagePayload = { sourceId: uploadBody.sourceId, taskId: uploadBody.taskId };
+
+  await app.inject({ method: "POST", url: "/api/admin/ingestion/parse", payload: stagePayload });
+  await app.inject({ method: "POST", url: "/api/admin/ingestion/chunk", payload: stagePayload });
+  await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/embed",
+    payload: { ...stagePayload, params: { profileId: "default" } },
+  });
+  const indexRes = await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/index",
+    payload: stagePayload,
+  });
+  if (indexRes.statusCode !== 200) {
+    console.log("[test][knowledge] index response", indexRes.statusCode, indexRes.body);
+  }
+  const publishRes = await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/publish",
+    payload: stagePayload,
+  });
+  if (publishRes.statusCode !== 200) {
+    console.log("[test][knowledge] publish response", publishRes.statusCode, publishRes.body);
+  }
+
+  return uploadBody;
+}
+
+
+===== FILE: apps\main-server\src\app.ts =====
+/**
+ * Runtime Core 涓荤▼搴忓叆鍙? *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server
+ *
+ * 鏂囦欢浣滅敤锛? * * 缁勮 main-server 鎵€鏈夋牳蹇冧緷璧栧苟鍚姩 HTTP + WebSocket 鏈嶅姟
+ * * 鏆撮湶鍐呴儴浜嬩欢鍏ュ彛渚?agent-runtime 鍥炰紶娴佸紡浜嬩欢
+ *
+ * 涓昏鍔熻兘锛? * * buildMainServer
+ * * 娉ㄥ唽 /internal/runtime/events
+ * * 瀹夎 websocket 鏈嶅姟
+ *
+ * 渚濊禆锛? * * fastify
+ * * protocol
+ * * runtime-core
+ * * scheduler-core
+ * * 鏈湴 ws/runtime/gateways 缁勪欢
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 鏈枃浠跺彧璐熻矗瑁呴厤锛屼笉鎵胯浇涓氬姟缁嗚妭
+ */
+
+import "dotenv/config";
+import Fastify, { type FastifyInstance } from "fastify";
+import type { InternalRuntimeEventsRequest } from "protocol";
+import {
+  DefaultTextParser,
+  IngestionService,
+  MockPublisher,
+} from "ingestion-core";
+import {
+  DefaultFallbackPolicy,
+  DefaultRetryPolicy,
+  InMemoryModelCatalog,
+  ModelInvokeService,
+  ModelRouter,
+  MockProviderAdapter,
+} from "model-core";
+import { InMemoryRunStore, InMemorySessionStore } from "runtime-core";
+import {
+  DefaultDispatchPolicy,
+  InMemoryAgentRegistry,
+  InMemoryRunQueue,
+  RunScheduler,
+} from "scheduler-core";
+import {
+  MockRerankAdapter,
+  SearchService,
+} from "search-core";
+import {
+  createMemorySearchTool,
+  createMemorySummarizeTool,
+  createMemoryWriteTool,
+  createPlansActivateTool,
+  createPlansExpandTool,
+  createPlansPauseTool,
+  createPlansQueryTool,
+  createPlansWriteTool,
+  createRecordsQueryTool,
+  createRecordsUpdateTool,
+  createRecordsWriteTool,
+  createSearchQueryTool,
+  createUserMetaQueryTool,
+  createUserMetaWriteTool,
+  type ToolDefinition,
+} from "tool-core";
+import { AgentGateway } from "./gateways/agent-gateway";
+import { IngestionGateway } from "./gateways/ingestion-gateway";
+import { MemoryGateway } from "./gateways/memory-gateway";
+import { ModelGateway } from "./gateways/model-gateway";
+import { RecordsPlansGateway } from "./gateways/records-plans-gateway";
+import { SearchGateway } from "./gateways/search-gateway";
+import { registerIngestionChunkRoute } from "./routes/ingestion-chunk";
+import { registerIngestionEmbedRoute } from "./routes/ingestion-embed";
+import { registerIngestionIndexRoute } from "./routes/ingestion-index";
+import { registerIngestionParseRoute } from "./routes/ingestion-parse";
+import { registerIngestionPublishRoute } from "./routes/ingestion-publish";
+import { registerIngestionUploadRoute } from "./routes/ingestion-upload";
+import { registerInternalMemorySearchRoute } from "./routes/internal-memory-search";
+import { registerInternalMemorySummarizeRoute } from "./routes/internal-memory-summarize";
+import { registerInternalMemoryWriteRoute } from "./routes/internal-memory-write";
+import { registerInternalModelRoutes } from "./routes/internal-model-invoke";
+import { registerInternalPlansActivateRoute } from "./routes/internal-plans-activate";
+import { registerInternalPlansExpandRoute } from "./routes/internal-plans-expand";
+import { registerInternalPlansPauseRoute } from "./routes/internal-plans-pause";
+import { registerInternalPlansQueryRoute } from "./routes/internal-plans-query";
+import { registerInternalPlansWriteRoute } from "./routes/internal-plans-write";
+import { registerInternalRecordsQueryRoute } from "./routes/internal-records-query";
+import { registerInternalRecordsUpdateRoute } from "./routes/internal-records-update";
+import { registerInternalRecordsWriteRoute } from "./routes/internal-records-write";
+import { registerInternalSearchQueryRoute } from "./routes/internal-search-query";
+import { registerInternalToolRoutes } from "./routes/internal-tools";
+import { registerInternalUserMetaQueryRoute } from "./routes/internal-user-meta-query";
+import { registerInternalUserMetaWriteRoute } from "./routes/internal-user-meta-write";
+import { EventRelay } from "./runtime/event-relay";
+import { RunService } from "./runtime/run-service";
+import { SessionManager } from "./runtime/session-manager";
+import { ConnectionManager } from "./ws/connection-manager";
+import { WsMessageHandler } from "./ws/ws-message-handler";
+import { RuntimeWsServer } from "./ws/server";
+import { createPrismaModule } from "./modules/database/prisma.module";
+import { RecordsRepository } from "./repositories/records.repository";
+import { PlansRepository } from "./repositories/plans.repository";
+import { UserMetaRepository } from "./repositories/user-meta.repository";
+import { MemoryRepository } from "./repositories/memory.repository";
+import { RunRepository } from "./repositories/run.repository";
+import { RunEventRepository } from "./repositories/run-event.repository";
+import { ToolCallLogRepository } from "./repositories/tool-call-log.repository";
+import { ModelInvokeLogRepository } from "./repositories/model-invoke-log.repository";
+import { AuditLogRepository } from "./repositories/audit-log.repository";
+import { PersistentRecordsService } from "./modules/records/services/records.service";
+import { PersistentPlansService } from "./modules/plans/services/plans.service";
+import { PersistentUserMetaService } from "./modules/user-meta/services/user-meta.service";
+import { PersistentMemoryService } from "./modules/memory/services/memory.service";
+import { AuditLogService } from "./modules/audit/services/audit-log.service";
+import { RunLogService } from "./modules/runtime/services/run-log.service";
+import { ToolCallLogService } from "./modules/runtime/services/tool-call-log.service";
+import { ModelInvokeLogService } from "./modules/model/services/model-invoke-log.service";
+import { createRedisModule } from "./modules/redis/redis.module";
+import { RuntimeCacheService } from "./modules/runtime/services/runtime-cache.service";
+import { KnowledgeRepository } from "./repositories/knowledge.repository";
+import { IngestionTaskRepository } from "./repositories/ingestion-task.repository";
+import { IngestionLogRepository } from "./repositories/ingestion-log.repository";
+import { RetrievalLogRepository } from "./repositories/retrieval-log.repository";
+import { DatabaseKnowledgeSourceStore } from "./modules/ingestion/services/knowledge-source.store";
+import { DatabaseIngestionTaskStore } from "./modules/ingestion/services/ingestion-task.store";
+import { DatabaseIngestionLogSink } from "./modules/ingestion/services/ingestion-log.sink";
+import { KnowledgeKeywordSearchAdapter } from "./modules/search/services/knowledge-keyword-search.adapter";
+import { DatabaseRetrievalLogSink } from "./modules/search/services/retrieval-log.sink";
+import { DeterministicEmbedder } from "./modules/ingestion/services/embedding-provider";
+import { VectorIndexWriter } from "./modules/ingestion/services/vector-index.writer";
+import { LanceDbVectorSearchAdapter } from "./modules/search/services/vector-search.adapter";
+import { VectorIndexRepository } from "./repositories/vector-index.repository";
+import { LanceDbVectorStore } from "vector-store-core";
+import { getVectorStoreConfig } from "./config/vector-store.config";
+
+/**
+ * 涓绘湇鍔℃瀯寤洪€夐」
+ */
+export interface MainServerOptions {
+  port?: number;
+  host?: string;
+  defaultAgentRuntimeUrl?: string;
+}
+
+/**
+ * 涓绘湇鍔′笂涓嬫枃
+ */
+export interface MainServerContext {
+  app: FastifyInstance;
+  runScheduler: RunScheduler;
+  runService: RunService;
+  sessionManager: SessionManager;
+  searchGateway: SearchGateway;
+  ingestionGateway: IngestionGateway;
+  memoryGateway: MemoryGateway;
+  tools: ToolDefinition[];
+}
+
+/**
+ * 鏋勫缓涓绘湇鍔? *
+ * 鍔熻兘璇存槑锛? * * 鍒濆鍖栧瓨鍌ㄣ€佽皟搴︺€佺綉鍏炽€佷簨浠惰浆鍙戝拰 websocket 灞? * * 娉ㄥ唽鍐呴儴浜嬩欢鍥炰紶鎺ュ彛
+ *
+ * @param options 鍚姩閫夐」
+ * @returns 涓绘湇鍔′笂涓嬫枃
+ */
+export function buildMainServer(options: MainServerOptions = {}): MainServerContext {
+  const app = Fastify({ logger: true });
+  const prismaModule = createPrismaModule();
+  const redisModule = createRedisModule();
+  const runtimeCacheService = new RuntimeCacheService(redisModule.redis);
+
+  const sessionStore = new InMemorySessionStore();
+  const runStore = new InMemoryRunStore();
+  const runQueue = new InMemoryRunQueue();
+  const agentRegistry = new InMemoryAgentRegistry();
+  const connectionManager = new ConnectionManager();
+  const knowledgeRepository = new KnowledgeRepository(prismaModule.prisma);
+  const retrievalLogRepository = new RetrievalLogRepository(prismaModule.prisma);
+  const vectorStoreConfig = getVectorStoreConfig();
+  const vectorStore = new LanceDbVectorStore(vectorStoreConfig);
+  const vectorIndexRepository = new VectorIndexRepository(vectorStore);
+  const searchService = new SearchService({
+    keywordAdapter: new KnowledgeKeywordSearchAdapter(knowledgeRepository),
+    vectorAdapter: new LanceDbVectorSearchAdapter(
+      knowledgeRepository,
+      vectorIndexRepository,
+    ),
+    rerankAdapter: new MockRerankAdapter(),
+    retrievalLogSink: new DatabaseRetrievalLogSink(retrievalLogRepository),
+  });
+  const searchGateway = new SearchGateway(searchService);
+  const modelCatalog = new InMemoryModelCatalog();
+  const modelInvokeService = new ModelInvokeService({
+    catalog: modelCatalog,
+    router: new ModelRouter(modelCatalog),
+    providerAdapter: new MockProviderAdapter(),
+    retryPolicy: new DefaultRetryPolicy(),
+    fallbackPolicy: new DefaultFallbackPolicy(),
+  });
+  const modelGateway = new ModelGateway(modelCatalog, modelInvokeService);
+  const runRepository = new RunRepository(prismaModule.prisma);
+  const runEventRepository = new RunEventRepository(prismaModule.prisma);
+  const toolCallLogRepository = new ToolCallLogRepository(prismaModule.prisma);
+  const modelInvokeLogRepository = new ModelInvokeLogRepository(prismaModule.prisma);
+  const auditLogRepository = new AuditLogRepository(prismaModule.prisma);
+  const recordsRepository = new RecordsRepository(prismaModule.prisma);
+  const plansRepository = new PlansRepository(prismaModule.prisma);
+  const userMetaRepository = new UserMetaRepository(prismaModule.prisma);
+  const memoryRepository = new MemoryRepository(prismaModule.prisma);
+
+  const auditLogService = new AuditLogService(auditLogRepository);
+  const userMetaService = new PersistentUserMetaService(
+    userMetaRepository,
+    auditLogService,
+  );
+  const memoryService = new PersistentMemoryService(
+    memoryRepository,
+    auditLogService,
+  );
+  const recordsService = new PersistentRecordsService(
+    recordsRepository,
+    auditLogService,
+  );
+  const plansService = new PersistentPlansService(plansRepository, auditLogService);
+  const runLogService = new RunLogService(runRepository, runEventRepository);
+  const toolCallLogService = new ToolCallLogService(toolCallLogRepository);
+  const modelInvokeLogService = new ModelInvokeLogService(modelInvokeLogRepository);
+  const memoryGateway = new MemoryGateway(
+    userMetaService,
+    memoryService,
+  );
+  const recordsPlansGateway = new RecordsPlansGateway(
+    recordsService,
+    plansService,
+  );
+  const tools: ToolDefinition[] = [
+    createSearchQueryTool(searchService),
+    createUserMetaWriteTool(userMetaService as never),
+    createUserMetaQueryTool(userMetaService as never),
+    createMemoryWriteTool(memoryService as never),
+    createMemorySearchTool(memoryService as never),
+    createMemorySummarizeTool(memoryService as never),
+    createRecordsWriteTool(recordsService as never),
+    createRecordsQueryTool(recordsService as never),
+    createRecordsUpdateTool(recordsService as never),
+    createPlansWriteTool(plansService as never),
+    createPlansQueryTool(plansService as never),
+    createPlansActivateTool(plansService as never),
+    createPlansPauseTool(plansService as never),
+    createPlansExpandTool(plansService as never),
+  ];
+  const ingestionTaskRepository = new IngestionTaskRepository(prismaModule.prisma);
+  const ingestionLogRepository = new IngestionLogRepository(prismaModule.prisma);
+  const ingestionTaskStore = new DatabaseIngestionTaskStore(
+    ingestionTaskRepository,
+    knowledgeRepository,
+  );
+  const knowledgeSourceStore = new DatabaseKnowledgeSourceStore(knowledgeRepository);
+  const ingestionService = new IngestionService({
+    taskStore: ingestionTaskStore,
+    sourceStore: knowledgeSourceStore,
+    logSink: new DatabaseIngestionLogSink(ingestionLogRepository),
+    parser: new DefaultTextParser(),
+    embedder: new DeterministicEmbedder(),
+    indexer: new VectorIndexWriter(knowledgeRepository, vectorIndexRepository),
+    publisher: new MockPublisher(knowledgeSourceStore),
+  });
+  const ingestionGateway = new IngestionGateway(ingestionService);
+
+  const sessionManager = new SessionManager(sessionStore);
+  const runService = new RunService(runStore, sessionStore);
+  const agentGateway = new AgentGateway();
+  const dispatchPolicy = new DefaultDispatchPolicy(
+    sessionStore,
+    runStore,
+    agentRegistry,
+  );
+  const runScheduler = new RunScheduler(
+    runQueue,
+    runStore,
+    sessionStore,
+    dispatchPolicy,
+    agentGateway,
+  );
+  const wsMessageHandler = new WsMessageHandler(
+    sessionManager,
+    runService,
+    runScheduler,
+    connectionManager,
+    runLogService,
+  );
+  const relayWithLogs = new EventRelay(
+    sessionManager,
+    connectionManager,
+    runService,
+    runLogService,
+  );
+  const wsServer = new RuntimeWsServer(
+    connectionManager,
+    sessionManager,
+    wsMessageHandler,
+  );
+
+  const defaultAgentRuntimeUrl =
+    options.defaultAgentRuntimeUrl ??
+    process.env.DEFAULT_AGENT_RUNTIME_URL ??
+    "http://127.0.0.1:4100";
+  const defaultAgentId = process.env.DEFAULT_AGENT_ID ?? "general.default";
+  void agentRegistry.register({
+    agentRuntimeId: "runtime-default",
+    agentId: defaultAgentId,
+    status: "healthy",
+    activeRuns: 0,
+    lastHeartbeatAt: new Date().toISOString(),
+    baseUrl: defaultAgentRuntimeUrl,
+  });
+
+  app.get("/api/health", async () => ({ ok: true }));
+  registerInternalSearchQueryRoute(app, searchGateway);
+  registerInternalToolRoutes(app, tools, toolCallLogService);
+  registerInternalModelRoutes(app, modelGateway, modelInvokeLogService);
+  registerInternalUserMetaWriteRoute(app, memoryGateway);
+  registerInternalUserMetaQueryRoute(app, memoryGateway);
+  registerInternalMemoryWriteRoute(app, memoryGateway);
+  registerInternalMemorySearchRoute(app, memoryGateway);
+  registerInternalMemorySummarizeRoute(app, memoryGateway);
+  registerInternalRecordsWriteRoute(app, recordsPlansGateway);
+  registerInternalRecordsQueryRoute(app, recordsPlansGateway);
+  registerInternalRecordsUpdateRoute(app, recordsPlansGateway);
+  registerInternalPlansWriteRoute(app, recordsPlansGateway);
+  registerInternalPlansQueryRoute(app, recordsPlansGateway);
+  registerInternalPlansActivateRoute(app, recordsPlansGateway);
+  registerInternalPlansPauseRoute(app, recordsPlansGateway);
+  registerInternalPlansExpandRoute(app, recordsPlansGateway);
+  registerIngestionUploadRoute(app, ingestionGateway);
+  registerIngestionParseRoute(app, ingestionGateway);
+  registerIngestionChunkRoute(app, ingestionGateway);
+  registerIngestionEmbedRoute(app, ingestionGateway);
+  registerIngestionIndexRoute(app, ingestionGateway);
+  registerIngestionPublishRoute(app, ingestionGateway);
+
+  app.post<{
+    Body: InternalRuntimeEventsRequest;
+  }>("/internal/runtime/events", async (request) => {
+    const body = request.body;
+    if (!body || !body.sessionId || !Array.isArray(body.events)) {
+      return { ok: false };
+    }
+    await relayWithLogs.relay(body.sessionId, body.events);
+    return { ok: true };
+  });
+
+  app.addHook("onReady", async () => {
+    await prismaModule.prisma.connect();
+    wsServer.install(app.server);
+    void runtimeCacheService;
+  });
+
+  app.addHook("onClose", async () => {
+    await prismaModule.prisma.disconnect();
+  });
+
+  return {
+    app,
+    runScheduler,
+    runService,
+    sessionManager,
+    searchGateway,
+    ingestionGateway,
+    memoryGateway,
+    tools,
+  };
+}
+
+/**
+ * 鍚姩涓绘湇鍔? *
+ * 鍔熻兘璇存槑锛? * * 鎸夌幆澧冨彉閲忔垨榛樿鍊煎惎鍔?main-server
+ *
+ * @returns void
+ */
+async function start(): Promise<void> {
+  const port = Number(process.env.PORT ?? 4000);
+  const host = process.env.HOST ?? "0.0.0.0";
+  const { app } = buildMainServer({ port, host });
+  await app.listen({ port, host });
+}
+
+if (require.main === module) {
+  void start();
+}
+
+
+===== RECENT TEST OUTPUT HINTS =====
+请把最近一次出现这些日志的完整输出也一起贴给我：
+[vector-store][debug]
+[vector-search][debug]
+

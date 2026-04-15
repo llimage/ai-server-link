@@ -1,0 +1,390 @@
+/**
+ * 运行时持久化数据库结构
+ *
+ * 所属模块：
+ * * infrastructure/prisma
+ *
+ * 文件作用：
+ * * 定义 Server 第 2 阶段的 PostgreSQL 持久化表结构
+ * * 覆盖 runtime、model log、tool log、records、plans、memory、user-meta、knowledge 等核心实体
+ *
+ * 主要功能：
+ * * users/sessions/runs/run_events
+ * * tool_call_logs/model_invoke_logs/audit_logs
+ * * user_metadata_records/memory_records/memory_summaries
+ * * records/plans/plan_runs
+ * * knowledge_sources/knowledge_documents/knowledge_chunks
+ * * stored_files/export_jobs
+ *
+ * 依赖：
+ * * Prisma ORM
+ * * PostgreSQL
+ *
+ * 注意事项：
+ * * JSON 字段用于 payload/metadata/value
+ * * 本阶段先保证结构稳定，不引入业务 domain 污染
+ */
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String?  @map("password_hash")
+  status       String   @default("active")
+  profileJson  Json?    @map("profile_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  sessionToken String   @unique @map("session_token")
+  status       String   @default("active")
+  expiresAt    DateTime @map("expires_at")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("sessions")
+}
+
+model Run {
+  id          String    @id @default(cuid())
+  sessionId   String    @map("session_id")
+  userId      String?   @map("user_id")
+  status      String
+  inputText   String?   @map("input_text")
+  startedAt   DateTime? @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+  timeoutMs   Int       @default(30000) @map("timeout_ms")
+  metadataJson Json?    @map("metadata_json")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  events           RunEvent[]
+  toolCallLogs     ToolCallLog[]
+  modelInvokeLogs  ModelInvokeLog[]
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([status])
+  @@map("runs")
+}
+
+model RunEvent {
+  id          String   @id @default(cuid())
+  runId       String   @map("run_id")
+  eventType   String   @map("event_type")
+  payloadJson Json?    @map("payload_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([eventType])
+  @@map("run_events")
+}
+
+model ToolCallLog {
+  id            String   @id @default(cuid())
+  runId         String?  @map("run_id")
+  sessionId     String?  @map("session_id")
+  toolName      String   @map("tool_name")
+  argsJson      Json?    @map("args_json")
+  resultSummary String?  @map("result_summary")
+  status        String
+  durationMs    Int?     @map("duration_ms")
+  errorMessage  String?  @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  run Run? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([runId])
+  @@index([toolName])
+  @@index([status])
+  @@map("tool_call_logs")
+}
+
+model ModelInvokeLog {
+  id           String   @id @default(cuid())
+  requestId    String   @unique @map("request_id")
+  runId        String?  @map("run_id")
+  modelId      String   @map("model_id")
+  provider     String
+  latencyMs    Int?     @map("latency_ms")
+  usageJson    Json?    @map("usage_json")
+  finishReason String?  @map("finish_reason")
+  attemptsJson Json?    @map("attempts_json")
+  success      Boolean  @default(false)
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  run Run? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([runId])
+  @@index([modelId])
+  @@index([success])
+  @@map("model_invoke_logs")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorType  String   @map("actor_type")
+  actorId    String?  @map("actor_id")
+  action     String
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  detailJson Json?    @map("detail_json")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([action])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+model UserMetadataRecord {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  key        String
+  valueJson  Json     @map("value_json")
+  confidence Float?
+  tagsJson   Json?    @map("tags_json")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@unique([userId, key])
+  @@map("user_metadata_records")
+}
+
+model MemoryRecord {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  content   String
+  tagsJson  Json?    @map("tags_json")
+  source    String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@map("memory_records")
+}
+
+model MemorySummary {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  summary       String
+  windowStartAt DateTime? @map("window_start_at")
+  windowEndAt   DateTime? @map("window_end_at")
+  metadataJson  Json?     @map("metadata_json")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("memory_summaries")
+}
+
+model Record {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  space        String
+  type         String
+  payloadJson  Json     @map("payload_json")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([space])
+  @@index([type])
+  @@map("records")
+}
+
+model Plan {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  space        String
+  type         String
+  status       String    @default("draft")
+  payloadJson  Json      @map("payload_json")
+  metadataJson Json?     @map("metadata_json")
+  activatedAt  DateTime? @map("activated_at")
+  pausedAt     DateTime? @map("paused_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  planRuns PlanRun[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([userId, type])
+  @@map("plans")
+}
+
+model PlanRun {
+  id         String    @id @default(cuid())
+  planId     String    @map("plan_id")
+  status     String
+  startedAt  DateTime? @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  payloadJson Json?    @map("payload_json")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@index([status])
+  @@map("plan_runs")
+}
+
+model KnowledgeSource {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  fileUri      String?  @map("file_uri")
+  status       String   @default("uploaded")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  documents KnowledgeDocument[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("knowledge_sources")
+}
+
+model KnowledgeDocument {
+  id           String   @id @default(cuid())
+  sourceId     String   @map("source_id")
+  title        String?
+  status       String   @default("parsed")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  source KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  chunks KnowledgeChunk[]
+
+  @@index([sourceId])
+  @@index([status])
+  @@map("knowledge_documents")
+}
+
+model KnowledgeChunk {
+  id           String   @id @default(cuid())
+  documentId   String   @map("document_id")
+  chunkIndex   Int      @map("chunk_index")
+  chunkText    String   @map("chunk_text")
+  tokenCount   Int      @default(0) @map("token_count")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@unique([documentId, chunkIndex])
+  @@map("knowledge_chunks")
+}
+
+model StoredFile {
+  id           String   @id @default(cuid())
+  bucket       String
+  objectKey    String   @map("object_key")
+  mimeType     String?  @map("mime_type")
+  sizeBytes    BigInt?  @map("size_bytes")
+  checksum     String?
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  exportJobs ExportJob[]
+
+  @@unique([bucket, objectKey])
+  @@map("stored_files")
+}
+
+model ExportJob {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  type         String
+  status       String
+  paramsJson   Json?    @map("params_json")
+  outputFileId String?  @map("output_file_id")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  outputFile StoredFile? @relation(fields: [outputFileId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@map("export_jobs")
+}
+
+model IngestionTask {
+  id           String   @id
+  sourceId     String   @map("source_id")
+  stage        String
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([sourceId])
+  @@index([stage])
+  @@map("ingestion_tasks")
+}
+
+model IngestionLog {
+  id        String   @id @default(cuid())
+  taskId    String   @map("task_id")
+  sourceId  String   @map("source_id")
+  stage     String
+  message   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([taskId])
+  @@index([sourceId])
+  @@index([stage])
+  @@map("ingestion_logs")
+}
+
+model RetrievalLog {
+  id              String   @id @default(cuid())
+  space           String
+  query           String
+  normalizedQuery String   @map("normalized_query")
+  filtersJson     Json?    @map("filters_json")
+  mode            String
+  topK            Int      @map("top_k")
+  keywordHitCount Int      @default(0) @map("keyword_hit_count")
+  vectorHitCount  Int      @default(0) @map("vector_hit_count")
+  mergedHitCount  Int      @default(0) @map("merged_hit_count")
+  resultCount     Int      @map("result_count")
+  durationMs      Int      @map("duration_ms")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([space])
+  @@index([mode])
+  @@map("retrieval_logs")
+}

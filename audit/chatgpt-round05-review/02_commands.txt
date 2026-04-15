@@ -1,0 +1,548 @@
+CHATGPT ROUND-05 COMMAND OUTPUTS
+
+####################################################################################################
+COMMAND: node -v
+####################################################################################################
+
+v24.14.1
+
+
+
+
+####################################################################################################
+COMMAND: pnpm -v
+####################################################################################################
+
+9.15.0
+
+
+
+
+####################################################################################################
+COMMAND: pnpm --filter vector-store-core test
+####################################################################################################
+
+
+> vector-store-core@0.1.0 test D:\ai-server\packages\vector-store-core
+> node ../../scripts/run-tests.mjs src
+
+Running tests: [ 'src\\lancedb-vector-store.test.ts' ]
+Before
+After
+âœ?lancedb vector store should upsert and query (236.332ms)
+â„?tests 1
+â„?suites 0
+â„?pass 0
+â„?fail 1
+â„?cancelled 0
+â„?skipped 0
+â„?todo 0
+â„?duration_ms 640.0313
+
+âœ?failing tests:
+
+test at src\lancedb-vector-store.test.ts:2:1032
+âœ?lancedb vector store should upsert and query (236.332ms)
+  TypeError: table.scan is not a function
+      at LanceDbVectorStore.scanRows (D:\ai-server\packages\vector-store-core\src\lancedb-vector-store.ts:125:32)
+      at LanceDbVectorStore.query (D:\ai-server\packages\vector-store-core\src\lancedb-vector-store.ts:213:31)
+      at async TestContext.<anonymous> (D:\ai-server\packages\vector-store-core\src\lancedb-vector-store.test.ts:45:19)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+D:\ai-server\packages\vector-store-core:
+â€‰ERR_PNPM_RECURSIVE_RUN_FIRST_FAILâ€?vector-store-core@0.1.0 test: `node ../../scripts/run-tests.mjs src`
+Exit status 1
+
+
+
+
+####################################################################################################
+COMMAND: pnpm --filter main-server test
+####################################################################################################
+
+
+> main-server@0.1.0 test D:\ai-server\apps\main-server
+> node ../../scripts/run-tests.mjs src
+
+Running tests: [
+  'src\\ingestion-routes.test.ts',
+  'src\\internal-tools.test.ts',
+  'src\\memory-routes.test.ts',
+  'src\\model-routes.test.ts',
+  'src\\modules\\memory\\tests\\memory.persistence.spec.ts',
+  'src\\modules\\model\\tests\\model-handler.service.test.ts',
+  'src\\modules\\model\\tests\\model-invoke-log.spec.ts',
+  'src\\modules\\plans\\tests\\plans.persistence.spec.ts',
+  'src\\modules\\records\\tests\\records.persistence.spec.ts',
+  'src\\modules\\runtime\\tests\\run-log.spec.ts',
+  'src\\modules\\runtime\\tests\\tool-call-log.spec.ts',
+  'src\\modules\\user-meta\\tests\\user-meta.persistence.spec.ts',
+  'src\\records-plans-routes.test.ts',
+  'src\\runtime\\run-service.test.ts',
+  'src\\runtime-smoke.test.ts',
+  'src\\tests\\persistence.e2e.spec.ts',
+  'src\\tests\\search-hybrid.e2e.spec.ts',
+  'src\\tests\\search-knowledge.e2e.spec.ts'
+]
+{"level":30,"time":1776163376865,"pid":24140,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/api/admin/ingestion/upload","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163376948,"pid":24140,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":82.64780001342297,"msg":"request completed"}
+{"level":30,"time":1776163376949,"pid":24140,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/api/admin/ingestion/parse","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377042,"pid":24140,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":93.06670001149178,"msg":"request completed"}
+{"level":30,"time":1776163377044,"pid":24140,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/api/admin/ingestion/chunk","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377188,"pid":24140,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":144.22669999301434,"msg":"request completed"}
+{"level":30,"time":1776163377189,"pid":24140,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","req":{"method":"POST","url":"/api/admin/ingestion/embed","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377328,"pid":24140,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","res":{"statusCode":200},"responseTime":139.8576000034809,"msg":"request completed"}
+{"level":30,"time":1776163377329,"pid":24140,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","req":{"method":"POST","url":"/api/admin/ingestion/index","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377768,"pid":24140,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","res":{"statusCode":200},"responseTime":424.8643000125885,"msg":"request completed"}
+âœ?ingestion admin routes should run full pipeline (1269.4438ms)
+{"level":30,"time":1776163376963,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"GET","url":"/internal/tools/schema","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163376969,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":5.203099995851517,"msg":"request completed"}
+{"level":30,"time":1776163376971,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/api/admin/ingestion/upload","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377051,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":79.65109999477863,"msg":"request completed"}
+{"level":30,"time":1776163377051,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/api/admin/ingestion/parse","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377179,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":127.73849999904633,"msg":"request completed"}
+{"level":30,"time":1776163377180,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","req":{"method":"POST","url":"/api/admin/ingestion/chunk","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377367,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","res":{"statusCode":200},"responseTime":186.95019999146461,"msg":"request completed"}
+{"level":30,"time":1776163377368,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","req":{"method":"POST","url":"/api/admin/ingestion/embed","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377613,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","res":{"statusCode":200},"responseTime":245.4767999947071,"msg":"request completed"}
+{"level":30,"time":1776163377614,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","req":{"method":"POST","url":"/api/admin/ingestion/index","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378023,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","res":{"statusCode":200},"responseTime":409.1130000054836,"msg":"request completed"}
+{"level":30,"time":1776163378025,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","req":{"method":"POST","url":"/api/admin/ingestion/publish","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378170,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","res":{"statusCode":200},"responseTime":144.45500001311302,"msg":"request completed"}
+{"level":30,"time":1776163378171,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","req":{"method":"POST","url":"/internal/tools/execute","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+thread 'tokio-runtime-worker' panicked at C:\Users\runneradmin\.cargo\registry\src\index.crates.io-6f17d22bba15001f\lance-encoding-0.18.2\src\encodings\logical\struct.rs:170:32:
+index out of bounds: the len is 0 but the index is 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+[vector-search] query failed: Failed to get next batch from stream: lance error: LanceError(IO): Execution error: ExecNode(Take): thread panicked: task 33 panicked with message "index out of bounds: the len is 0 but the index is 0", C:\Users\runneradmin\.cargo\registry\src\index.crates.io-6f17d22bba15001f\lance-0.18.2\src\dataset\scanner.rs:1925:83
+{"level":30,"time":1776163378255,"pid":20264,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","res":{"statusCode":200},"responseTime":84.36040000617504,"msg":"request completed"}
+âœ?internal tools routes should expose and execute search/meta/memory/records/plans tools (1651.811ms)
+{"level":30,"time":1776163376922,"pid":24040,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/user-meta/write","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163376968,"pid":24040,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":43.4493999928236,"msg":"request completed"}
+{"level":30,"time":1776163376969,"pid":24040,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/internal/user-meta/query","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163376979,"pid":24040,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":9.59570001065731,"msg":"request completed"}
+{"level":30,"time":1776163376980,"pid":24040,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/internal/memory/write","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377001,"pid":24040,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":20.961300000548363,"msg":"request completed"}
+{"level":30,"time":1776163377002,"pid":24040,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","req":{"method":"POST","url":"/internal/memory/search","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377009,"pid":24040,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","res":{"statusCode":200},"responseTime":6.901999995112419,"msg":"request completed"}
+{"level":30,"time":1776163377010,"pid":24040,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","req":{"method":"POST","url":"/internal/memory/summarize","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377047,"pid":24040,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","res":{"statusCode":200},"responseTime":36.552000001072884,"msg":"request completed"}
+âœ?memory internal routes should support write/query/search/summarize (458.4712ms)
+{"level":30,"time":1776163376992,"pid":25432,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"GET","url":"/internal/models/catalog","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163376998,"pid":25432,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":5.276700004935265,"msg":"request completed"}
+{"level":30,"time":1776163377000,"pid":25432,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/internal/model/invoke","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377041,"pid":25432,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":40.17239999771118,"msg":"request completed"}
+{"level":30,"time":1776163377042,"pid":25432,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/internal/model/invoke/stream","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163377067,"pid":25432,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":25.482700005173683,"msg":"request completed"}
+âœ?model routes should expose catalog and invoke (445.0682ms)
+âœ?memory persistence: write search summarize (154.1084ms)
+âœ?model handler service invoke should return response data (7.6482ms)
+âœ?model handler service streamInvoke should return response data (2.1336ms)
+âœ?model-invoke-log persistence: success path should be written (134.7386ms)
+âœ?model-invoke-log persistence: failure path should be written (65.4612ms)
+âœ?plans persistence: create update status query (151.2808ms)
+âœ?records persistence: create and query (123.0602ms)
+âœ?run-log persistence: lifecycle should be written to database (240.2642ms)
+âœ?tool-call-log persistence: success path should be written (112.6764ms)
+âœ?tool-call-log persistence: failure path should be written (132.8332ms)
+âœ?user-meta persistence: write and query (117.9814ms)
+{"level":30,"time":1776163378530,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/records/write","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378592,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":60.634300008416176,"msg":"request completed"}
+{"level":30,"time":1776163378593,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/internal/records/query","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378609,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":16.04790000617504,"msg":"request completed"}
+{"level":30,"time":1776163378611,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/internal/records/update","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378647,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":35.393900007009506,"msg":"request completed"}
+âœ?records internal routes should support write/query/update (413.8794ms)
+{"level":30,"time":1776163378700,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/plans/write","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378720,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":19.790399998426437,"msg":"request completed"}
+{"level":30,"time":1776163378721,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/internal/plans/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378743,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":21.78880000114441,"msg":"request completed"}
+{"level":30,"time":1776163378743,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/internal/plans/pause","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378771,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":27.56700000166893,"msg":"request completed"}
+{"level":30,"time":1776163378771,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","req":{"method":"POST","url":"/internal/plans/query","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378775,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","res":{"statusCode":200},"responseTime":4.278500005602837,"msg":"request completed"}
+{"level":30,"time":1776163378776,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","req":{"method":"POST","url":"/internal/plans/expand","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378783,"pid":14132,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","res":{"statusCode":200},"responseTime":7.020299986004829,"msg":"request completed"}
+âœ?plans internal routes should support write/query/activate/pause/expand (131.3919ms)
+{"level":30,"time":1776163378564,"pid":18728,"hostname":"ä¸­ç¥žé€?,"msg":"Server listening at http://127.0.0.1:4200"}
+{"level":30,"time":1776163378942,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61759},"msg":"incoming request"}
+{"level":30,"time":1776163378978,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":35.47370000183582,"msg":"request completed"}
+âœ?runtime core smoke: ws -> run -> deltas -> completed (717.9175ms)
+{"level":30,"time":1776163379015,"pid":18728,"hostname":"ä¸­ç¥žé€?,"msg":"Server listening at http://127.0.0.1:4200"}
+{"level":30,"time":1776163379019,"pid":18728,"hostname":"ä¸­ç¥žé€?,"msg":"Server listening at http://127.0.0.1:4201"}
+{"level":30,"time":1776163379052,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/agent/run","host":"127.0.0.1:4201","remoteAddress":"127.0.0.1","remotePort":61767},"msg":"incoming request"}
+{"level":30,"time":1776163379054,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":1.5870999991893768,"msg":"request completed"}
+{"level":30,"time":1776163379059,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61768},"msg":"incoming request"}
+{"level":30,"time":1776163379061,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":1.6203000098466873,"msg":"request completed"}
+{"level":30,"time":1776163379065,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61769},"msg":"incoming request"}
+{"level":30,"time":1776163379066,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":0.5248000025749207,"msg":"request completed"}
+{"level":30,"time":1776163379068,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/internal/tools/execute","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61768},"msg":"incoming request"}
+{"level":30,"time":1776163379124,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":56.10909999907017,"msg":"request completed"}
+{"level":30,"time":1776163379126,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61769},"msg":"incoming request"}
+{"level":30,"time":1776163379126,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","res":{"statusCode":200},"responseTime":0.5042000114917755,"msg":"request completed"}
+{"level":30,"time":1776163379128,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61768},"msg":"incoming request"}
+{"level":30,"time":1776163379128,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","res":{"statusCode":200},"responseTime":0.5639999955892563,"msg":"request completed"}
+{"level":30,"time":1776163379130,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","req":{"method":"POST","url":"/internal/tools/execute","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61769},"msg":"incoming request"}
+{"level":30,"time":1776163379147,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","res":{"statusCode":200},"responseTime":17.079000011086464,"msg":"request completed"}
+{"level":30,"time":1776163379149,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61768},"msg":"incoming request"}
+{"level":30,"time":1776163379150,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","res":{"statusCode":200},"responseTime":0.5345999896526337,"msg":"request completed"}
+{"level":30,"time":1776163379151,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61769},"msg":"incoming request"}
+{"level":30,"time":1776163379166,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","res":{"statusCode":200},"responseTime":14.91830000281334,"msg":"request completed"}
+{"level":30,"time":1776163379167,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-9","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61768},"msg":"incoming request"}
+{"level":30,"time":1776163379188,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-9","res":{"statusCode":200},"responseTime":20.85360001027584,"msg":"request completed"}
+âœ?runtime smoke: ws metadata flow should call user.meta tools and complete (201.5921ms)
+{"level":30,"time":1776163379219,"pid":18728,"hostname":"ä¸­ç¥žé€?,"msg":"Server listening at http://127.0.0.1:4200"}
+{"level":30,"time":1776163379221,"pid":18728,"hostname":"ä¸­ç¥žé€?,"msg":"Server listening at http://127.0.0.1:4201"}
+{"level":30,"time":1776163379249,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/agent/run","host":"127.0.0.1:4201","remoteAddress":"127.0.0.1","remotePort":61781},"msg":"incoming request"}
+{"level":30,"time":1776163379250,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":0.9508000016212463,"msg":"request completed"}
+{"level":30,"time":1776163379252,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61782},"msg":"incoming request"}
+{"level":30,"time":1776163379252,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":0.37640000879764557,"msg":"request completed"}
+{"level":30,"time":1776163379255,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61783},"msg":"incoming request"}
+{"level":30,"time":1776163379256,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":0.5584000051021576,"msg":"request completed"}
+{"level":30,"time":1776163379260,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/internal/tools/execute","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61782},"msg":"incoming request"}
+{"level":30,"time":1776163379287,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":26.277499988675117,"msg":"request completed"}
+{"level":30,"time":1776163379288,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61783},"msg":"incoming request"}
+{"level":30,"time":1776163379289,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","res":{"statusCode":200},"responseTime":0.31919999420642853,"msg":"request completed"}
+{"level":30,"time":1776163379290,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61782},"msg":"incoming request"}
+{"level":30,"time":1776163379290,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","res":{"statusCode":200},"responseTime":0.4560000002384186,"msg":"request completed"}
+{"level":30,"time":1776163379291,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","req":{"method":"POST","url":"/internal/tools/execute","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61783},"msg":"incoming request"}
+{"level":30,"time":1776163379308,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","res":{"statusCode":200},"responseTime":16.41889999806881,"msg":"request completed"}
+{"level":30,"time":1776163379309,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61782},"msg":"incoming request"}
+{"level":30,"time":1776163379310,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","res":{"statusCode":200},"responseTime":0.2564999908208847,"msg":"request completed"}
+{"level":30,"time":1776163379311,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61783},"msg":"incoming request"}
+{"level":30,"time":1776163379320,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","res":{"statusCode":200},"responseTime":9.23080000281334,"msg":"request completed"}
+{"level":30,"time":1776163379321,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-9","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61782},"msg":"incoming request"}
+{"level":30,"time":1776163379343,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-9","res":{"statusCode":200},"responseTime":21.526600003242493,"msg":"request completed"}
+âœ?runtime smoke: ws memory flow should call memory tools and complete (154.66ms)
+{"level":30,"time":1776163379369,"pid":18728,"hostname":"ä¸­ç¥žé€?,"msg":"Server listening at http://127.0.0.1:4200"}
+{"level":30,"time":1776163379371,"pid":18728,"hostname":"ä¸­ç¥žé€?,"msg":"Server listening at http://127.0.0.1:4201"}
+{"level":30,"time":1776163379395,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/agent/run","host":"127.0.0.1:4201","remoteAddress":"127.0.0.1","remotePort":61791},"msg":"incoming request"}
+{"level":30,"time":1776163379396,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":1.030900001525879,"msg":"request completed"}
+{"level":30,"time":1776163379399,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61792},"msg":"incoming request"}
+{"level":30,"time":1776163379400,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":0.4300999939441681,"msg":"request completed"}
+{"level":30,"time":1776163379402,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61793},"msg":"incoming request"}
+{"level":30,"time":1776163379403,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":0.40209999680519104,"msg":"request completed"}
+{"level":30,"time":1776163379404,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/internal/tools/execute","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61792},"msg":"incoming request"}
+{"level":30,"time":1776163379445,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":41.10470001399517,"msg":"request completed"}
+{"level":30,"time":1776163379446,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61793},"msg":"incoming request"}
+{"level":30,"time":1776163379446,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","res":{"statusCode":200},"responseTime":0.21299999952316284,"msg":"request completed"}
+{"level":30,"time":1776163379447,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61792},"msg":"incoming request"}
+{"level":30,"time":1776163379447,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","res":{"statusCode":200},"responseTime":0.24959999322891235,"msg":"request completed"}
+{"level":30,"time":1776163379448,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","req":{"method":"POST","url":"/internal/tools/execute","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61793},"msg":"incoming request"}
+{"level":30,"time":1776163379465,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","res":{"statusCode":200},"responseTime":17.153899997472763,"msg":"request completed"}
+{"level":30,"time":1776163379467,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61792},"msg":"incoming request"}
+{"level":30,"time":1776163379467,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","res":{"statusCode":200},"responseTime":0.2628999948501587,"msg":"request completed"}
+{"level":30,"time":1776163379468,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61793},"msg":"incoming request"}
+{"level":30,"time":1776163379479,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","res":{"statusCode":200},"responseTime":10.692299991846085,"msg":"request completed"}
+{"level":30,"time":1776163379480,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-9","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61792},"msg":"incoming request"}
+{"level":30,"time":1776163379501,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-9","res":{"statusCode":200},"responseTime":21.54459999501705,"msg":"request completed"}
+âœ?runtime smoke: ws records flow should call records tools and complete (157.4259ms)
+{"level":30,"time":1776163379527,"pid":18728,"hostname":"ä¸­ç¥žé€?,"msg":"Server listening at http://127.0.0.1:4200"}
+{"level":30,"time":1776163379529,"pid":18728,"hostname":"ä¸­ç¥žé€?,"msg":"Server listening at http://127.0.0.1:4201"}
+{"level":30,"time":1776163379554,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/agent/run","host":"127.0.0.1:4201","remoteAddress":"127.0.0.1","remotePort":61801},"msg":"incoming request"}
+{"level":30,"time":1776163379555,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":0.8127000033855438,"msg":"request completed"}
+{"level":30,"time":1776163379558,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61802},"msg":"incoming request"}
+{"level":30,"time":1776163379559,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":0.5104999989271164,"msg":"request completed"}
+{"level":30,"time":1776163379563,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61803},"msg":"incoming request"}
+{"level":30,"time":1776163379563,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":0.33900000154972076,"msg":"request completed"}
+{"level":30,"time":1776163379564,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/internal/tools/execute","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61802},"msg":"incoming request"}
+{"level":30,"time":1776163379603,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":39.30129998922348,"msg":"request completed"}
+{"level":30,"time":1776163379605,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61803},"msg":"incoming request"}
+{"level":30,"time":1776163379605,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","res":{"statusCode":200},"responseTime":0.20180000364780426,"msg":"request completed"}
+{"level":30,"time":1776163379605,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61802},"msg":"incoming request"}
+{"level":30,"time":1776163379606,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","res":{"statusCode":200},"responseTime":0.19779999554157257,"msg":"request completed"}
+{"level":30,"time":1776163379609,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","req":{"method":"POST","url":"/internal/tools/execute","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61803},"msg":"incoming request"}
+{"level":30,"time":1776163379637,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","res":{"statusCode":200},"responseTime":28.030799999833107,"msg":"request completed"}
+{"level":30,"time":1776163379639,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61802},"msg":"incoming request"}
+{"level":30,"time":1776163379639,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","res":{"statusCode":200},"responseTime":0.517099991440773,"msg":"request completed"}
+{"level":30,"time":1776163379642,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61803},"msg":"incoming request"}
+{"level":30,"time":1776163379643,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","res":{"statusCode":200},"responseTime":0.4667000025510788,"msg":"request completed"}
+{"level":30,"time":1776163379644,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-9","req":{"method":"POST","url":"/internal/tools/execute","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61802},"msg":"incoming request"}
+{"level":30,"time":1776163379659,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-9","res":{"statusCode":200},"responseTime":14.640000000596046,"msg":"request completed"}
+{"level":30,"time":1776163379660,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-a","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61803},"msg":"incoming request"}
+{"level":30,"time":1776163379660,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-a","res":{"statusCode":200},"responseTime":0.22659999132156372,"msg":"request completed"}
+{"level":30,"time":1776163379661,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-b","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61802},"msg":"incoming request"}
+{"level":30,"time":1776163379661,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-b","res":{"statusCode":200},"responseTime":0.23559999465942383,"msg":"request completed"}
+{"level":30,"time":1776163379662,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-c","req":{"method":"POST","url":"/internal/tools/execute","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61803},"msg":"incoming request"}
+{"level":30,"time":1776163379675,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-c","res":{"statusCode":200},"responseTime":13.250699996948242,"msg":"request completed"}
+{"level":30,"time":1776163379678,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-d","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61802},"msg":"incoming request"}
+{"level":30,"time":1776163379679,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-d","res":{"statusCode":200},"responseTime":1.047200009226799,"msg":"request completed"}
+{"level":30,"time":1776163379681,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-e","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61803},"msg":"incoming request"}
+{"level":30,"time":1776163379695,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-e","res":{"statusCode":200},"responseTime":14.100000008940697,"msg":"request completed"}
+{"level":30,"time":1776163379697,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-f","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61802},"msg":"incoming request"}
+{"level":30,"time":1776163379718,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-f","res":{"statusCode":200},"responseTime":21.148500010371208,"msg":"request completed"}
+âœ?runtime smoke: ws plans flow should call plans tools and complete (219.3388ms)
+{"level":30,"time":1776163379753,"pid":18728,"hostname":"ä¸­ç¥žé€?,"msg":"Server listening at http://127.0.0.1:4200"}
+{"level":30,"time":1776163379758,"pid":18728,"hostname":"ä¸­ç¥žé€?,"msg":"Server listening at http://127.0.0.1:4201"}
+{"level":30,"time":1776163379803,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/agent/run","host":"127.0.0.1:4201","remoteAddress":"127.0.0.1","remotePort":61819},"msg":"incoming request"}
+{"level":30,"time":1776163379806,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":1.9407000094652176,"msg":"request completed"}
+{"level":30,"time":1776163379809,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61820},"msg":"incoming request"}
+{"level":30,"time":1776163379811,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":1.9715000092983246,"msg":"request completed"}
+{"level":30,"time":1776163379822,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/internal/model/invoke/stream","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61821},"msg":"incoming request"}
+{"level":30,"time":1776163379856,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":32.99590000510216,"msg":"request completed"}
+{"level":30,"time":1776163379860,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61820},"msg":"incoming request"}
+{"level":30,"time":1776163379872,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":11.471099987626076,"msg":"request completed"}
+{"level":30,"time":1776163379873,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61821},"msg":"incoming request"}
+{"level":30,"time":1776163379883,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","res":{"statusCode":200},"responseTime":10.261099994182587,"msg":"request completed"}
+{"level":30,"time":1776163379884,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","req":{"method":"POST","url":"/internal/runtime/events","host":"127.0.0.1:4200","remoteAddress":"127.0.0.1","remotePort":61820},"msg":"incoming request"}
+{"level":30,"time":1776163379906,"pid":18728,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","res":{"statusCode":200},"responseTime":21.52930000424385,"msg":"request completed"}
+âœ?runtime smoke: ws default chat should invoke model handler and complete (184.2718ms)
+âœ?createRun should enforce single active run per session (7.3181ms)
+âœ?cancelRun should clear session.activeRunId (0.6679ms)
+âœ?persistence e2e: should write and query all core persistence tables (407.8045ms)
+{"level":30,"time":1776163378871,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/api/admin/ingestion/upload","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378919,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":46.76749999821186,"msg":"request completed"}
+{"level":30,"time":1776163378919,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/api/admin/ingestion/parse","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163378974,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":54.4142000079155,"msg":"request completed"}
+{"level":30,"time":1776163378974,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/api/admin/ingestion/chunk","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379034,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":59.25270000100136,"msg":"request completed"}
+{"level":30,"time":1776163379034,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","req":{"method":"POST","url":"/api/admin/ingestion/embed","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379102,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","res":{"statusCode":200},"responseTime":68.29719999432564,"msg":"request completed"}
+{"level":30,"time":1776163379102,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","req":{"method":"POST","url":"/api/admin/ingestion/index","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379386,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","res":{"statusCode":200},"responseTime":283.6292999982834,"msg":"request completed"}
+{"level":30,"time":1776163379386,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","req":{"method":"POST","url":"/api/admin/ingestion/publish","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379441,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","res":{"statusCode":200},"responseTime":54.15429998934269,"msg":"request completed"}
+{"level":30,"time":1776163379441,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","req":{"method":"POST","url":"/api/admin/ingestion/upload","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379470,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","res":{"statusCode":200},"responseTime":29.122500002384186,"msg":"request completed"}
+{"level":30,"time":1776163379470,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","req":{"method":"POST","url":"/api/admin/ingestion/parse","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379514,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-8","res":{"statusCode":200},"responseTime":43.041999995708466,"msg":"request completed"}
+{"level":30,"time":1776163379514,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-9","req":{"method":"POST","url":"/api/admin/ingestion/chunk","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379563,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-9","res":{"statusCode":200},"responseTime":48.95459999144077,"msg":"request completed"}
+{"level":30,"time":1776163379563,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-a","req":{"method":"POST","url":"/api/admin/ingestion/embed","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379621,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-a","res":{"statusCode":200},"responseTime":58.120299994945526,"msg":"request completed"}
+{"level":30,"time":1776163379622,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-b","req":{"method":"POST","url":"/api/admin/ingestion/index","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379692,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-b","res":{"statusCode":200},"responseTime":70.1811999976635,"msg":"request completed"}
+{"level":30,"time":1776163379692,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-c","req":{"method":"POST","url":"/api/admin/ingestion/publish","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379762,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-c","res":{"statusCode":200},"responseTime":70.31119999289513,"msg":"request completed"}
+{"level":30,"time":1776163379763,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-d","req":{"method":"POST","url":"/internal/search/query","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379780,"pid":7272,"hostname":"ä¸­ç¥žé€?,"reqId":"req-d","res":{"statusCode":200},"responseTime":16.691699996590614,"msg":"request completed"}
+âœ?search hybrid modes should return published knowledge hits (1156.8858ms)
+{"level":30,"time":1776163379020,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","req":{"method":"POST","url":"/api/admin/ingestion/upload","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379075,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-1","res":{"statusCode":200},"responseTime":53.07019999623299,"msg":"request completed"}
+{"level":30,"time":1776163379083,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","req":{"method":"POST","url":"/api/admin/ingestion/parse","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379141,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-2","res":{"statusCode":200},"responseTime":57.352199986577034,"msg":"request completed"}
+{"level":30,"time":1776163379141,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","req":{"method":"POST","url":"/api/admin/ingestion/chunk","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379197,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-3","res":{"statusCode":200},"responseTime":55.79159998893738,"msg":"request completed"}
+{"level":30,"time":1776163379198,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","req":{"method":"POST","url":"/api/admin/ingestion/embed","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379256,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-4","res":{"statusCode":200},"responseTime":57.98370000720024,"msg":"request completed"}
+{"level":30,"time":1776163379257,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","req":{"method":"POST","url":"/api/admin/ingestion/index","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379541,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-5","res":{"statusCode":200},"responseTime":284.2048999965191,"msg":"request completed"}
+{"level":30,"time":1776163379542,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","req":{"method":"POST","url":"/api/admin/ingestion/publish","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379606,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-6","res":{"statusCode":200},"responseTime":64.7361999899149,"msg":"request completed"}
+{"level":30,"time":1776163379607,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","req":{"method":"POST","url":"/internal/search/query","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1776163379621,"pid":17164,"hostname":"ä¸­ç¥žé€?,"reqId":"req-7","res":{"statusCode":200},"responseTime":13.42000000178814,"msg":"request completed"}
+âœ?search + knowledge e2e should return published knowledge hits (783.8672ms)
+â„?tests 28
+â„?suites 0
+â„?pass 24
+â„?fail 4
+â„?cancelled 0
+â„?skipped 0
+â„?todo 0
+â„?duration_ms 4639.4831
+
+âœ?failing tests:
+
+test at src\ingestion-routes.test.ts:2:975
+âœ?ingestion admin routes should run full pipeline (1269.4438ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'failed'
+  - 'indexed'
+  
+      at TestContext.<anonymous> (D:\ai-server\apps\main-server\src\ingestion-routes.test.ts:72:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'failed',
+    expected: 'indexed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src\internal-tools.test.ts:2:1041
+âœ?internal tools routes should expose and execute search/meta/memory/records/plans tools (1651.811ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok((executeBody.result?.items?.length ?? 0) >= 1)
+  
+      at TestContext.<anonymous> (D:\ai-server\apps\main-server\src\internal-tools.test.ts:97:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src\tests\search-hybrid.e2e.spec.ts:2:1043
+âœ?search hybrid modes should return published knowledge hits (1156.8858ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok((keywordBody.items?.length ?? 0) >= 1)
+  
+      at TestContext.<anonymous> (D:\ai-server\apps\main-server\src\tests\search-hybrid.e2e.spec.ts:53:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src\tests\search-knowledge.e2e.spec.ts:2:1043
+âœ?search + knowledge e2e should return published knowledge hits (783.8672ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok((searchBody.items?.length ?? 0) >= 1)
+  
+      at TestContext.<anonymous> (D:\ai-server\apps\main-server\src\tests\search-knowledge.e2e.spec.ts:55:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+D:\ai-server\apps\main-server:
+â€‰ERR_PNPM_RECURSIVE_RUN_FIRST_FAILâ€?main-server@0.1.0 test: `node ../../scripts/run-tests.mjs src`
+Exit status 1
+
+
+
+
+####################################################################################################
+COMMAND: pnpm -r test
+####################################################################################################
+
+Scope: 15 of 16 workspace projects
+packages/shared-types test$ node ../../scripts/run-tests.mjs src
+packages/shared-types test: No tests found
+packages/shared-types test: Done
+packages/protocol test$ node ../../scripts/run-tests.mjs src
+packages/embedding-core test$ node ../../scripts/run-tests.mjs src
+packages/vector-store-core test$ node ../../scripts/run-tests.mjs src
+packages/protocol test: No tests found
+packages/embedding-core test: Running tests: [ 'src\\deterministic-embedding-provider.test.ts' ]
+packages/protocol test: Done
+packages/vector-store-core test: Running tests: [ 'src\\lancedb-vector-store.test.ts' ]
+packages/embedding-core test: âœ?deterministic embedding provider should return stable vectors (1.2115ms)
+packages/embedding-core test: â„?tests 1
+packages/embedding-core test: â„?suites 0
+packages/embedding-core test: â„?pass 1
+packages/embedding-core test: â„?fail 0
+packages/embedding-core test: â„?cancelled 0
+packages/embedding-core test: â„?skipped 0
+packages/embedding-core test: â„?todo 0
+packages/embedding-core test: â„?duration_ms 245.7582
+packages/embedding-core test: Done
+packages/vector-store-core test: Before
+packages/vector-store-core test: After
+packages/vector-store-core test: âœ?lancedb vector store should upsert and query (228.086ms)
+packages/vector-store-core test: â„?tests 1
+packages/vector-store-core test: â„?suites 0
+packages/vector-store-core test: â„?pass 0
+packages/vector-store-core test: â„?fail 1
+packages/vector-store-core test: â„?cancelled 0
+packages/vector-store-core test: â„?skipped 0
+packages/vector-store-core test: â„?todo 0
+packages/vector-store-core test: â„?duration_ms 605.4212
+packages/vector-store-core test: âœ?failing tests:
+packages/vector-store-core test: test at src\lancedb-vector-store.test.ts:2:1032
+packages/vector-store-core test: âœ?lancedb vector store should upsert and query (228.086ms)
+packages/vector-store-core test:   TypeError: table.scan is not a function
+packages/vector-store-core test:       at LanceDbVectorStore.scanRows (D:\ai-server\packages\vector-store-core\src\lancedb-vector-store.ts:125:32)
+packages/vector-store-core test:       at LanceDbVectorStore.query (D:\ai-server\packages\vector-store-core\src\lancedb-vector-store.ts:213:31)
+packages/vector-store-core test:       at async TestContext.<anonymous> (D:\ai-server\packages\vector-store-core\src\lancedb-vector-store.test.ts:45:19)
+packages/vector-store-core test:       at async Test.run (node:internal/test_runner/test:1125:7)
+packages/vector-store-core test:       at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+packages/vector-store-core test: Failed
+D:\ai-server\packages\vector-store-core:
+â€‰ERR_PNPM_RECURSIVE_RUN_FIRST_FAILâ€?vector-store-core@0.1.0 test: `node ../../scripts/run-tests.mjs src`
+Exit status 1
+
+
+
+
+####################################################################################################
+COMMAND: dir /s /b D:\health-manager\ai-server-link\packages\embedding-core\dist
+####################################################################################################
+
+D:\health-manager\ai-server-link\packages\embedding-core\dist\deterministic-embedding-provider.d.ts
+D:\health-manager\ai-server-link\packages\embedding-core\dist\deterministic-embedding-provider.js
+D:\health-manager\ai-server-link\packages\embedding-core\dist\deterministic-embedding-provider.test.d.ts
+D:\health-manager\ai-server-link\packages\embedding-core\dist\deterministic-embedding-provider.test.js
+D:\health-manager\ai-server-link\packages\embedding-core\dist\embedding-provider.d.ts
+D:\health-manager\ai-server-link\packages\embedding-core\dist\embedding-provider.js
+D:\health-manager\ai-server-link\packages\embedding-core\dist\index.d.ts
+D:\health-manager\ai-server-link\packages\embedding-core\dist\index.js
+
+
+
+
+####################################################################################################
+COMMAND: dir /s /b D:\health-manager\ai-server-link\packages\vector-store-core\dist
+####################################################################################################
+
+D:\health-manager\ai-server-link\packages\vector-store-core\dist\index.d.ts
+D:\health-manager\ai-server-link\packages\vector-store-core\dist\index.js
+D:\health-manager\ai-server-link\packages\vector-store-core\dist\lancedb-vector-store.d.ts
+D:\health-manager\ai-server-link\packages\vector-store-core\dist\lancedb-vector-store.js
+D:\health-manager\ai-server-link\packages\vector-store-core\dist\lancedb-vector-store.test.d.ts
+D:\health-manager\ai-server-link\packages\vector-store-core\dist\lancedb-vector-store.test.js
+D:\health-manager\ai-server-link\packages\vector-store-core\dist\vector-store-types.d.ts
+D:\health-manager\ai-server-link\packages\vector-store-core\dist\vector-store-types.js
+
+
+
+
+####################################################################################################
+COMMAND: dir /s /b D:\health-manager\ai-server-link\packages\search-core\dist
+####################################################################################################
+
+D:\health-manager\ai-server-link\packages\search-core\dist\filter-normalizer.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\filter-normalizer.js
+D:\health-manager\ai-server-link\packages\search-core\dist\filter-normalizer.test.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\filter-normalizer.test.js
+D:\health-manager\ai-server-link\packages\search-core\dist\hybrid-merge.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\hybrid-merge.js
+D:\health-manager\ai-server-link\packages\search-core\dist\hybrid-merge.test.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\hybrid-merge.test.js
+D:\health-manager\ai-server-link\packages\search-core\dist\index.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\index.js
+D:\health-manager\ai-server-link\packages\search-core\dist\keyword-search.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\keyword-search.js
+D:\health-manager\ai-server-link\packages\search-core\dist\query-normalizer.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\query-normalizer.js
+D:\health-manager\ai-server-link\packages\search-core\dist\query-normalizer.test.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\query-normalizer.test.js
+D:\health-manager\ai-server-link\packages\search-core\dist\rerank.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\rerank.js
+D:\health-manager\ai-server-link\packages\search-core\dist\retrieval-log.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\retrieval-log.js
+D:\health-manager\ai-server-link\packages\search-core\dist\score-utils.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\score-utils.js
+D:\health-manager\ai-server-link\packages\search-core\dist\search-profile.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\search-profile.js
+D:\health-manager\ai-server-link\packages\search-core\dist\search-service.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\search-service.js
+D:\health-manager\ai-server-link\packages\search-core\dist\search-service.test.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\search-service.test.js
+D:\health-manager\ai-server-link\packages\search-core\dist\search-types.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\search-types.js
+D:\health-manager\ai-server-link\packages\search-core\dist\vector-search.d.ts
+D:\health-manager\ai-server-link\packages\search-core\dist\vector-search.js
+
+
+

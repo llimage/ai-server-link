@@ -1,0 +1,3207 @@
+CHATGPT ROUND-05 STRICT REVIEW BUNDLE
+
+====================================================================================================
+FILE: root package.json
+PATH: D:\health-manager\ai-server-link\package.json
+====================================================================================================
+
+{
+  "name": "ai-server",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "prisma:generate": "pnpm exec prisma generate --schema ./infrastructure/prisma/schema.prisma",
+    "prisma:migrate": "pnpm exec prisma migrate dev --schema ./infrastructure/prisma/schema.prisma",
+    "db:seed": "tsx ./infrastructure/prisma/seed.ts"
+  },
+  "devDependencies": {
+    "@prisma/client": "^6.7.0",
+    "@types/node": "^22.10.2",
+    "prisma": "^6.7.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
+
+
+
+
+====================================================================================================
+FILE: pnpm-workspace.yaml
+PATH: D:\health-manager\ai-server-link\pnpm-workspace.yaml
+====================================================================================================
+
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
+
+
+
+
+====================================================================================================
+FILE: root tsconfig.json
+PATH: D:\health-manager\ai-server-link\tsconfig.json
+====================================================================================================
+
+[MISSING]
+
+
+
+====================================================================================================
+FILE: schema.prisma
+PATH: D:\health-manager\ai-server-link\infrastructure\prisma\schema.prisma
+====================================================================================================
+
+/**
+ * 运行时持久化数据库结�? *
+ * 所属模块：
+ * * infrastructure/prisma
+ *
+ * 文件作用�? * * 定义 Server �?2 阶段�?PostgreSQL 持久化表结构
+ * * 覆盖 runtime、model log、tool log、records、plans、memory、user-meta、knowledge 等核心实�? *
+ * 主要功能�? * * users/sessions/runs/run_events
+ * * tool_call_logs/model_invoke_logs/audit_logs
+ * * user_metadata_records/memory_records/memory_summaries
+ * * records/plans/plan_runs
+ * * knowledge_sources/knowledge_documents/knowledge_chunks
+ * * stored_files/export_jobs
+ *
+ * 依赖�? * * Prisma ORM
+ * * PostgreSQL
+ *
+ * 注意事项�? * * JSON 字段用于 payload/metadata/value
+ * * 本阶段先保证结构稳定，不引入业务 domain 污染
+ */
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String?  @map("password_hash")
+  status       String   @default("active")
+  profileJson  Json?    @map("profile_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  sessionToken String   @unique @map("session_token")
+  status       String   @default("active")
+  expiresAt    DateTime @map("expires_at")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("sessions")
+}
+
+model Run {
+  id          String    @id @default(cuid())
+  sessionId   String    @map("session_id")
+  userId      String?   @map("user_id")
+  status      String
+  inputText   String?   @map("input_text")
+  startedAt   DateTime? @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+  timeoutMs   Int       @default(30000) @map("timeout_ms")
+  metadataJson Json?    @map("metadata_json")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  events           RunEvent[]
+  toolCallLogs     ToolCallLog[]
+  modelInvokeLogs  ModelInvokeLog[]
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([status])
+  @@map("runs")
+}
+
+model RunEvent {
+  id          String   @id @default(cuid())
+  runId       String   @map("run_id")
+  eventType   String   @map("event_type")
+  payloadJson Json?    @map("payload_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([eventType])
+  @@map("run_events")
+}
+
+model ToolCallLog {
+  id            String   @id @default(cuid())
+  runId         String?  @map("run_id")
+  sessionId     String?  @map("session_id")
+  toolName      String   @map("tool_name")
+  argsJson      Json?    @map("args_json")
+  resultSummary String?  @map("result_summary")
+  status        String
+  durationMs    Int?     @map("duration_ms")
+  errorMessage  String?  @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  run Run? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([runId])
+  @@index([toolName])
+  @@index([status])
+  @@map("tool_call_logs")
+}
+
+model ModelInvokeLog {
+  id           String   @id @default(cuid())
+  requestId    String   @unique @map("request_id")
+  runId        String?  @map("run_id")
+  modelId      String   @map("model_id")
+  provider     String
+  latencyMs    Int?     @map("latency_ms")
+  usageJson    Json?    @map("usage_json")
+  finishReason String?  @map("finish_reason")
+  attemptsJson Json?    @map("attempts_json")
+  success      Boolean  @default(false)
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  run Run? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([runId])
+  @@index([modelId])
+  @@index([success])
+  @@map("model_invoke_logs")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorType  String   @map("actor_type")
+  actorId    String?  @map("actor_id")
+  action     String
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  detailJson Json?    @map("detail_json")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([action])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+model UserMetadataRecord {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  key        String
+  valueJson  Json     @map("value_json")
+  confidence Float?
+  tagsJson   Json?    @map("tags_json")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@unique([userId, key])
+  @@map("user_metadata_records")
+}
+
+model MemoryRecord {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  content   String
+  tagsJson  Json?    @map("tags_json")
+  source    String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@map("memory_records")
+}
+
+model MemorySummary {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  summary       String
+  windowStartAt DateTime? @map("window_start_at")
+  windowEndAt   DateTime? @map("window_end_at")
+  metadataJson  Json?     @map("metadata_json")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("memory_summaries")
+}
+
+model Record {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  space        String
+  type         String
+  payloadJson  Json     @map("payload_json")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([space])
+  @@index([type])
+  @@map("records")
+}
+
+model Plan {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  space        String
+  type         String
+  status       String    @default("draft")
+  payloadJson  Json      @map("payload_json")
+  metadataJson Json?     @map("metadata_json")
+  activatedAt  DateTime? @map("activated_at")
+  pausedAt     DateTime? @map("paused_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  planRuns PlanRun[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([userId, type])
+  @@map("plans")
+}
+
+model PlanRun {
+  id         String    @id @default(cuid())
+  planId     String    @map("plan_id")
+  status     String
+  startedAt  DateTime? @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  payloadJson Json?    @map("payload_json")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@index([status])
+  @@map("plan_runs")
+}
+
+model KnowledgeSource {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  fileUri      String?  @map("file_uri")
+  status       String   @default("uploaded")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  documents KnowledgeDocument[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("knowledge_sources")
+}
+
+model KnowledgeDocument {
+  id           String   @id @default(cuid())
+  sourceId     String   @map("source_id")
+  title        String?
+  status       String   @default("parsed")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  source KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  chunks KnowledgeChunk[]
+
+  @@index([sourceId])
+  @@index([status])
+  @@map("knowledge_documents")
+}
+
+model KnowledgeChunk {
+  id           String   @id @default(cuid())
+  documentId   String   @map("document_id")
+  chunkIndex   Int      @map("chunk_index")
+  chunkText    String   @map("chunk_text")
+  tokenCount   Int      @default(0) @map("token_count")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@unique([documentId, chunkIndex])
+  @@map("knowledge_chunks")
+}
+
+model StoredFile {
+  id           String   @id @default(cuid())
+  bucket       String
+  objectKey    String   @map("object_key")
+  mimeType     String?  @map("mime_type")
+  sizeBytes    BigInt?  @map("size_bytes")
+  checksum     String?
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  exportJobs ExportJob[]
+
+  @@unique([bucket, objectKey])
+  @@map("stored_files")
+}
+
+model ExportJob {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  type         String
+  status       String
+  paramsJson   Json?    @map("params_json")
+  outputFileId String?  @map("output_file_id")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  outputFile StoredFile? @relation(fields: [outputFileId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@map("export_jobs")
+}
+
+model IngestionTask {
+  id           String   @id
+  sourceId     String   @map("source_id")
+  stage        String
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([sourceId])
+  @@index([stage])
+  @@map("ingestion_tasks")
+}
+
+model IngestionLog {
+  id        String   @id @default(cuid())
+  taskId    String   @map("task_id")
+  sourceId  String   @map("source_id")
+  stage     String
+  message   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([taskId])
+  @@index([sourceId])
+  @@index([stage])
+  @@map("ingestion_logs")
+}
+
+model RetrievalLog {
+  id              String   @id @default(cuid())
+  space           String
+  query           String
+  normalizedQuery String   @map("normalized_query")
+  filtersJson     Json?    @map("filters_json")
+  mode            String
+  topK            Int      @map("top_k")
+  keywordHitCount Int      @default(0) @map("keyword_hit_count")
+  vectorHitCount  Int      @default(0) @map("vector_hit_count")
+  mergedHitCount  Int      @default(0) @map("merged_hit_count")
+  resultCount     Int      @map("result_count")
+  durationMs      Int      @map("duration_ms")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([space])
+  @@index([mode])
+  @@map("retrieval_logs")
+}
+
+
+
+
+====================================================================================================
+FILE: embedding-core package.json
+PATH: D:\health-manager\ai-server-link\packages\embedding-core\package.json
+====================================================================================================
+
+{
+  "name": "embedding-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs src"
+  },
+  "dependencies": {
+    "shared-types": "workspace:*"
+  }
+}
+
+
+
+
+====================================================================================================
+FILE: embedding-core tsconfig.json
+PATH: D:\health-manager\ai-server-link\packages\embedding-core\tsconfig.json
+====================================================================================================
+
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "types": ["node"],
+    "moduleResolution": "node"
+  },
+  "include": ["src"]
+}
+
+
+
+
+====================================================================================================
+FILE: embedding-core src/index.ts
+PATH: D:\health-manager\ai-server-link\packages\embedding-core\src\index.ts
+====================================================================================================
+
+/**
+ * Embedding Core - 统一导出
+ *
+ * 所属模块：
+ * * embedding-core
+ *
+ * 文件作用�? * * 导出 embedding provider 相关类型与实�? *
+ * 主要功能�? * * export EmbeddingProvider / DeterministicEmbeddingProvider
+ *
+ * 依赖�? * * embedding-provider
+ * * deterministic-embedding-provider
+ *
+ * 注意事项�? * * 仅导出能力，不包含业务逻辑
+ */
+
+export type { EmbeddingProvider, EmbeddingRequest, EmbeddingResult } from "./embedding-provider";
+export { DeterministicEmbeddingProvider } from "./deterministic-embedding-provider";
+
+
+
+
+====================================================================================================
+FILE: embedding-core src/embedding-provider.ts
+PATH: D:\health-manager\ai-server-link\packages\embedding-core\src\embedding-provider.ts
+====================================================================================================
+
+/**
+ * Embedding Core - Provider 抽象
+ *
+ * 所属模块：
+ * * embedding-core
+ *
+ * 文件作用�? * * 定义 embedding provider 的统一调用接口
+ * * 约束输出向量的维度与可复现行�? *
+ * 主要功能�? * * EmbeddingProvider 接口
+ * * EmbeddingRequest/EmbeddingResult 类型
+ *
+ * 依赖�? * * shared-types（基础类型�? *
+ * 注意事项�? * * provider 只负责生成向量，不包含任何业务语�? */
+
+/**
+ * embedding 请求参数
+ */
+export interface EmbeddingRequest {
+  texts: string[];
+  dimension: number;
+  providerName?: string;
+}
+
+/**
+ * embedding 响应
+ */
+export interface EmbeddingResult {
+  vectors: number[][];
+  dimension: number;
+  providerName?: string;
+}
+
+/**
+ * embedding provider 抽象
+ */
+export interface EmbeddingProvider {
+  /**
+   * 生成向量
+   *
+   * 功能说明�?   * * 根据文本列表生成稳定可复现的向量
+   *
+   * @param request embedding 请求
+   * @returns embedding 结果
+   */
+  embed(request: EmbeddingRequest): Promise<EmbeddingResult>;
+}
+
+
+
+
+====================================================================================================
+FILE: embedding-core src/deterministic-embedding-provider.ts
+PATH: D:\health-manager\ai-server-link\packages\embedding-core\src\deterministic-embedding-provider.ts
+====================================================================================================
+
+/**
+ * Embedding Core - 确定性向量提供器
+ *
+ * 所属模块：
+ * * embedding-core
+ *
+ * 文件作用�? * * 提供本地可运行、可复现�?embedding 实现
+ * * 用于测试与非真实 provider 阶段的向量生�? *
+ * 主要功能�? * * DeterministicEmbeddingProvider
+ *
+ * 依赖�? * * embedding-provider
+ *
+ * 注意事项�? * * 该实现不调用真实模型，只用于稳定测试
+ */
+
+import type { EmbeddingProvider, EmbeddingRequest, EmbeddingResult } from "./embedding-provider";
+
+/**
+ * 确定性向量提供器
+ */
+export class DeterministicEmbeddingProvider implements EmbeddingProvider {
+  /**
+   * 生成向量
+   *
+   * 功能说明�?   * * 使用稳定哈希生成固定维度向量
+   *
+   * @param request embedding 请求
+   * @returns embedding 结果
+   */
+  async embed(request: EmbeddingRequest): Promise<EmbeddingResult> {
+    const vectors = request.texts.map((text) =>
+      buildStableVector(text, request.dimension),
+    );
+    return {
+      vectors,
+      dimension: request.dimension,
+      providerName: request.providerName ?? "deterministic",
+    };
+  }
+}
+
+/**
+ * 构造稳定向�? *
+ * 功能说明�? * * 使用简单哈希生成固定长度向量，保证同输入可复现
+ *
+ * @param text 输入文本
+ * @param dimension 向量维度
+ * @returns 向量
+ */
+function buildStableVector(text: string, dimension: number): number[] {
+  const seed = simpleHash(text);
+  const vector: number[] = [];
+  for (let index = 0; index < dimension; index += 1) {
+    const value = ((seed + (index + 1) * 1315423911) >>> 0) % 1000;
+    vector.push(value / 1000);
+  }
+  return vector;
+}
+
+/**
+ * 简单哈�? *
+ * 功能说明�? * * 为向量生成提供稳定种�? *
+ * @param text 输入文本
+ * @returns hash �? */
+function simpleHash(text: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+
+
+
+====================================================================================================
+FILE: embedding-core deterministic test
+PATH: D:\health-manager\ai-server-link\packages\embedding-core\src\deterministic-embedding-provider.test.ts
+====================================================================================================
+
+/**
+ * Embedding Core - 确定性向量测�? *
+ * 所属模块：
+ * * embedding-core
+ *
+ * 文件作用�? * * 验证 deterministic provider 输出可复现向�? *
+ * 主要功能�? * * same input => same vector
+ * * dimension 符合期望
+ *
+ * 依赖�? * * node:test
+ * * DeterministicEmbeddingProvider
+ *
+ * 注意事项�? * * 仅验证稳定性，不评估语义质�? */
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { DeterministicEmbeddingProvider } from "./deterministic-embedding-provider";
+
+test("deterministic embedding provider should return stable vectors", async () => {
+  const provider = new DeterministicEmbeddingProvider();
+  const first = await provider.embed({
+    texts: ["hello world", "hello world"],
+    dimension: 8,
+  });
+  const second = await provider.embed({
+    texts: ["hello world", "hello world"],
+    dimension: 8,
+  });
+  assert.equal(first.vectors.length, 2);
+  assert.equal(first.vectors[0].length, 8);
+  assert.deepEqual(first.vectors, second.vectors);
+});
+
+
+
+
+====================================================================================================
+FILE: vector-store-core package.json
+PATH: D:\health-manager\ai-server-link\packages\vector-store-core\package.json
+====================================================================================================
+
+{
+  "name": "vector-store-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs src"
+  },
+  "dependencies": {
+    "@lancedb/lancedb": "^0.11.0",
+    "shared-types": "workspace:*"
+  }
+}
+
+
+
+
+====================================================================================================
+FILE: vector-store-core tsconfig.json
+PATH: D:\health-manager\ai-server-link\packages\vector-store-core\tsconfig.json
+====================================================================================================
+
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "types": ["node"],
+    "moduleResolution": "node"
+  },
+  "include": ["src"]
+}
+
+
+
+
+====================================================================================================
+FILE: vector-store-core src/index.ts
+PATH: D:\health-manager\ai-server-link\packages\vector-store-core\src\index.ts
+====================================================================================================
+
+export type {
+  VectorQuery,
+  VectorRecord,
+  VectorSearchResult,
+  VectorStore
+} from "./vector-store-types";
+
+export {
+  LanceDbVectorStore,
+  type LanceDbConfig
+} from "./lancedb-vector-store";
+
+
+
+
+====================================================================================================
+FILE: vector-store-core src/vector-store-types.ts
+PATH: D:\health-manager\ai-server-link\packages\vector-store-core\src\vector-store-types.ts
+====================================================================================================
+
+/**
+ * Vector Store Core - 基础类型
+ *
+ * 所属模块：
+ * * vector-store-core
+ *
+ * 文件作用�? * * 定义向量存储的通用结构与接�? * * 约束写入与检索行�? *
+ * 主要功能�? * * VectorRecord / VectorQuery / VectorSearchResult
+ * * VectorStore 接口
+ *
+ * 依赖�? * * �? *
+ * 注意事项�? * * 保持通用结构，不引入行业字段
+ */
+
+/**
+ * 向量记录
+ */
+export interface VectorRecord {
+  chunkId: string;
+  documentId: string;
+  sourceId: string;
+  tenantId: string;
+  text: string;
+  embedding: number[];
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * 向量检索参�? */
+export interface VectorQuery {
+  vector: number[];
+  topK: number;
+  tenantId?: string;
+}
+
+/**
+ * 向量检索结�? */
+export interface VectorSearchResult {
+  chunkId: string;
+  documentId: string;
+  sourceId: string;
+  tenantId: string;
+  text: string;
+  score: number;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * 向量存储接口
+ */
+export interface VectorStore {
+  /**
+   * 写入/更新向量记录
+   *
+   * 功能说明�?   * * 支持�?chunkId 幂等写入
+   *
+   * @param records 向量记录
+   * @returns void
+   */
+  upsert(records: VectorRecord[]): Promise<void>;
+
+  /**
+   * 向量检�?   *
+   * 功能说明�?   * * 根据向量召回相似 chunk
+   *
+   * @param query 检索参�?   * @returns 命中结果
+   */
+  query(query: VectorQuery): Promise<VectorSearchResult[]>;
+}
+
+
+
+
+====================================================================================================
+FILE: vector-store-core lancedb-vector-store.ts
+PATH: D:\health-manager\ai-server-link\packages\vector-store-core\src\lancedb-vector-store.ts
+====================================================================================================
+
+import * as lancedb from "@lancedb/lancedb";
+import type { VectorQuery, VectorRecord, VectorSearchResult, VectorStore } from "./vector-store-types";
+
+export interface LanceDbConfig {
+  uri?: string;
+  tableName?: string;
+  vectorColumn?: string;
+}
+
+type LanceDbTable = any;
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function asVector(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((n) => Number(n)).filter((n) => Number.isFinite(n));
+}
+
+function sanitizeMetadata(metadata: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  const record = asRecord(metadata);
+  if (!record) return undefined;
+  const cleaned: Record<string, unknown> = { ...record };
+  delete cleaned.tenant_id;
+  delete cleaned.tenantId;
+  delete cleaned.tenantid;
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
+
+function resolveRowTenantId(row: Record<string, unknown>): string | undefined {
+  const metadata = asRecord(row.metadata);
+  return (
+    asString(row.tenantId) ??
+    asString(row.tenant_id) ??
+    asString(row.tenantid) ??
+    asString(metadata?.tenantId) ??
+    asString(metadata?.tenant_id)
+  );
+}
+
+function getRowVector(row: Record<string, unknown>, vectorColumn: string): number[] {
+  const candidate = row[vectorColumn] ?? row.vector;
+  return asVector(candidate);
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length === 0 || b.length === 0 || a.length !== b.length) {
+    return -1;
+  }
+
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i += 1) {
+    const av = a[i] ?? 0;
+    const bv = b[i] ?? 0;
+    dot += av * bv;
+    normA += av * av;
+    normB += bv * bv;
+  }
+
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  if (denom === 0) return -1;
+  return dot / denom;
+}
+
+function resolveScore(
+  row: Record<string, unknown>,
+  queryVector: number[],
+  vectorColumn: string,
+  rowVector?: number[],
+): number {
+  const vector = rowVector ?? getRowVector(row, vectorColumn);
+  if (vector.length > 0 && vector.length === queryVector.length) {
+    return cosineSimilarity(queryVector, vector);
+  }
+  if (typeof row._score === "number") return row._score;
+  if (typeof row._distance === "number") return 1 / (1 + row._distance);
+  return 0;
+}
+
+export class LanceDbVectorStore implements VectorStore {
+  private readonly uri: string;
+  private readonly tableName: string;
+  private readonly vectorColumn: string;
+  private db: any | null = null;
+
+  constructor(config: LanceDbConfig = {}) {
+    this.uri = config.uri ?? "./.lancedb";
+    this.tableName = config.tableName ?? "vectors";
+    this.vectorColumn = config.vectorColumn ?? "vector";
+  }
+
+  private async getDb(): Promise<any> {
+    if (this.db) return this.db;
+    this.db = await lancedb.connect(this.uri);
+    return this.db;
+  }
+
+  private async tableExists(db: any): Promise<boolean> {
+    const names = await db.tableNames();
+    return Array.isArray(names) && names.includes(this.tableName);
+  }
+
+  private toRow(record: VectorRecord): Record<string, unknown> {
+    return {
+      chunkId: record.chunkId,
+      documentId: record.documentId,
+      sourceId: record.sourceId,
+      tenantId: record.tenantId,
+      text: record.text,
+      vector: record.embedding,
+      metadata: sanitizeMetadata(record.metadata),
+    };
+  }
+
+  private async scanRows(table: LanceDbTable): Promise<Record<string, unknown>[]> {
+    const reader = await table.scan();
+    const rows = await reader.toArray();
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  private async getRowCount(table: LanceDbTable): Promise<number> {
+    if (typeof table.countRows === "function") {
+      try {
+        const count = await table.countRows();
+        return typeof count === "bigint" ? Number(count) : Number(count);
+      } catch {
+        // fall back to scan
+      }
+    }
+
+    const rows = await this.scanRows(table);
+    return rows.length;
+  }
+
+  private rankRows(
+    rows: Record<string, unknown>[],
+    queryVector: number[],
+    topK: number,
+    tenantId?: string,
+    fromSearch = false,
+  ): VectorSearchResult[] {
+    const scored = rows.map((row) => {
+      const rowVector = getRowVector(row, this.vectorColumn);
+      const score = fromSearch
+        ? resolveScore(row, queryVector, this.vectorColumn, rowVector)
+        : cosineSimilarity(queryVector, rowVector);
+      return {
+        row,
+        score,
+        hasVector: rowVector.length > 0,
+      };
+    });
+
+    const valid = scored.filter((entry) => {
+      if (fromSearch) return Number.isFinite(entry.score);
+      return entry.hasVector && entry.score > -1;
+    });
+
+    const filtered = tenantId
+      ? valid.filter((entry) => resolveRowTenantId(entry.row) === tenantId)
+      : valid;
+
+    const ranked = filtered.sort((a, b) => b.score - a.score).slice(0, topK);
+
+    return ranked.map(({ row, score }) => ({
+      chunkId: asString(row.chunkId) ?? "",
+      documentId: asString(row.documentId) ?? "",
+      sourceId: asString(row.sourceId) ?? "",
+      tenantId: resolveRowTenantId(row) ?? "",
+      text: asString(row.text) ?? "",
+      score,
+      metadata: asRecord(row.metadata),
+    }));
+  }
+
+  async upsert(records: VectorRecord[]): Promise<void> {
+    if (!records?.length) return;
+
+    const db = await this.getDb();
+    const rows = records.map((record) => this.toRow(record));
+    const exists = await this.tableExists(db);
+
+    if (!exists) {
+      await db.createTable(this.tableName, rows);
+      return;
+    }
+
+    const table = await db.openTable(this.tableName);
+    await table.add(rows);
+  }
+
+  async query(query: VectorQuery): Promise<VectorSearchResult[]> {
+    const { vector, topK, tenantId } = query;
+    if (!Array.isArray(vector) || vector.length === 0) return [];
+
+    const db = await this.getDb();
+    const exists = await this.tableExists(db);
+    if (!exists) return [];
+
+    const table = await db.openTable(this.tableName);
+    const rowCount = await this.getRowCount(table);
+
+    if (rowCount < 20) {
+      const rows = await this.scanRows(table);
+      return this.rankRows(rows, vector, topK, tenantId);
+    }
+
+    const overfetch = Math.max(topK * 20, 50);
+    const results = await table.search(vector).limit(overfetch).toArray();
+    const rows = Array.isArray(results) ? results : [];
+    return this.rankRows(rows, vector, topK, tenantId, true);
+  }
+}
+
+
+
+
+
+
+
+
+====================================================================================================
+FILE: vector-store-core lancedb-vector-store.test.ts
+PATH: D:\health-manager\ai-server-link\packages\vector-store-core\src\lancedb-vector-store.test.ts
+====================================================================================================
+
+/**
+ * Vector Store Core - LanceDB 测试
+ *
+ * 所属模块：
+ * * vector-store-core
+ *
+ * 文件作用�? * * 验证 LanceDB 写入与检索可�? *
+ * 主要功能�? * * upsert -> query
+ *
+ * 依赖�? * * node:test
+ * * LanceDbVectorStore
+ *
+ * 注意事项�? * * 使用本地测试目录，避免污染正式数�? */
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { LanceDbVectorStore } from "./lancedb-vector-store";
+
+test("lancedb vector store should upsert and query", async () => {
+  const baseDir = join(process.cwd(), "storage", "lancedb-test");
+  mkdirSync(baseDir, { recursive: true });
+  const store = new LanceDbVectorStore({
+    uri: baseDir,
+    tableName: `chunks_${Date.now()}`,
+  });
+  await store.upsert([
+    {
+      chunkId: "chunk-1",
+      documentId: "doc-1",
+      sourceId: "src-1",
+      tenantId: "tenant-1",
+      text: "hello vector",
+      embedding: [0.1, 0.2, 0.3],
+      metadata: { tag: "test" },
+    },
+  ]);
+  const results = await store.query({
+    vector: [0.1, 0.2, 0.3],
+    topK: 3,
+    tenantId: "tenant-1",
+  });
+  assert.ok(results.length >= 1);
+  assert.equal(results[0].chunkId, "chunk-1");
+});
+
+
+
+
+====================================================================================================
+FILE: search-core package.json
+PATH: D:\health-manager\ai-server-link\packages\search-core\package.json
+====================================================================================================
+
+{
+  "name": "search-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs src"
+  },
+  "dependencies": {
+    "protocol": "workspace:*"
+  }
+}
+
+
+
+
+====================================================================================================
+FILE: search-core tsconfig.json
+PATH: D:\health-manager\ai-server-link\packages\search-core\tsconfig.json
+====================================================================================================
+
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "types": ["node"],
+    "moduleResolution": "node"
+  },
+  "include": ["src"]
+}
+
+
+
+
+====================================================================================================
+FILE: search-core hybrid-merge.ts
+PATH: D:\health-manager\ai-server-link\packages\search-core\src\hybrid-merge.ts
+====================================================================================================
+
+/**
+ * Search Core Hybrid 合并�? *
+ * 所属模块：
+ * * search-core
+ *
+ * 文件作用�? * * 合并关键词与向量召回结果，输出统一候选集�? *
+ * 主要功能�? * * mergeHybridHits
+ *
+ * 依赖�? * * search-types
+ * * score-utils
+ *
+ * 注意事项�? * * 本文件只做合并与排序，不做模式决策和 rerank
+ */
+
+import { clampScore } from "./score-utils";
+import type { KeywordHit, MergedHit, VectorHit } from "./search-types";
+
+/**
+ * 混合合并权重
+ */
+export interface HybridMergeWeights {
+  keywordWeight: number;
+  vectorWeight: number;
+}
+
+/**
+ * 合并 keyword/vector 结果
+ *
+ * 功能说明�? * * 通过 id 聚合双侧命中
+ * * 按权重计算最终分数并降序排序
+ *
+ * @param keywordHits 关键词命�? * @param vectorHits 向量命中
+ * @param weights 合并权重
+ * @returns 合并后的候选结�? */
+export function mergeHybridHits(
+  keywordHits: KeywordHit[],
+  vectorHits: VectorHit[],
+  weights: HybridMergeWeights,
+): MergedHit[] {
+  const byId = new Map<string, MergedHit>();
+  const rrfK = 60;
+
+  keywordHits.forEach((item, index) => {
+    const rank = index + 1;
+    const contribution = weights.keywordWeight / (rrfK + rank);
+    const existing = byId.get(item.id);
+    if (existing) {
+      existing.keywordScore = (existing.keywordScore ?? 0) + contribution;
+      if (!existing.text) {
+        existing.text = item.text;
+      }
+      existing.metadata = { ...existing.metadata, ...item.metadata };
+      return;
+    }
+    byId.set(item.id, {
+      id: item.id,
+      text: item.text,
+      metadata: item.metadata,
+      score: 0,
+      keywordScore: contribution,
+      vectorScore: 0,
+    });
+  });
+
+  vectorHits.forEach((item, index) => {
+    const rank = index + 1;
+    const contribution = weights.vectorWeight / (rrfK + rank);
+    const existing = byId.get(item.id);
+    if (existing) {
+      existing.vectorScore = (existing.vectorScore ?? 0) + contribution;
+      if (!existing.text) {
+        existing.text = item.text;
+      }
+      existing.metadata = { ...existing.metadata, ...item.metadata };
+      return;
+    }
+    byId.set(item.id, {
+      id: item.id,
+      text: item.text,
+      metadata: item.metadata,
+      score: 0,
+      keywordScore: 0,
+      vectorScore: contribution,
+    });
+  });
+
+  const merged = [...byId.values()].map((item) => {
+    const keywordScore = item.keywordScore ?? 0;
+    const vectorScore = item.vectorScore ?? 0;
+    const finalScore = keywordScore + vectorScore;
+    return {
+      ...item,
+      score: clampScore(finalScore),
+    };
+  });
+
+  return merged.sort((left, right) => {
+    if (right.score !== left.score) {
+      return right.score - left.score;
+    }
+    if ((right.keywordScore ?? 0) !== (left.keywordScore ?? 0)) {
+      return (right.keywordScore ?? 0) - (left.keywordScore ?? 0);
+    }
+    if ((right.vectorScore ?? 0) !== (left.vectorScore ?? 0)) {
+      return (right.vectorScore ?? 0) - (left.vectorScore ?? 0);
+    }
+    return left.id.localeCompare(right.id);
+  });
+}
+
+
+
+
+====================================================================================================
+FILE: search-core hybrid-merge.test.ts
+PATH: D:\health-manager\ai-server-link\packages\search-core\src\hybrid-merge.test.ts
+====================================================================================================
+
+/**
+ * Search Core Hybrid 合并测试
+ *
+ * 所属模块：
+ * * search-core
+ *
+ * 文件作用�? * * 验证 mergeHybridHits 的合并与排序规则
+ *
+ * 主要功能�? * * 相同 id 合并
+ * * 单边命中可输�? * * �?score 降序
+ *
+ * 依赖�? * * node:test
+ * * hybrid-merge
+ *
+ * 注意事项�? * * 仅验�?merge 逻辑，不包含 rerank
+ */
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { mergeHybridHits } from "./hybrid-merge";
+
+/**
+ * 测试相同 id 合并与排�? */
+test("mergeHybridHits should merge same id and sort by score desc", () => {
+  const merged = mergeHybridHits(
+    [
+      { id: "a", score: 0.9, text: "A-kw", metadata: {} },
+      { id: "b", score: 0.2, text: "B-kw", metadata: {} },
+    ],
+    [
+      { id: "a", score: 0.5, text: "A-vec", metadata: {} },
+      { id: "c", score: 0.8, text: "C-vec", metadata: {} },
+    ],
+    { keywordWeight: 0.5, vectorWeight: 0.5 },
+  );
+
+  assert.equal(merged.length, 3);
+  assert.equal(merged[0]?.id, "a");
+  assert.equal(merged[1]?.id, "b");
+  assert.equal(merged[2]?.id, "c");
+});
+
+/**
+ * 测试单边命中输出
+ */
+test("mergeHybridHits should keep single-side hits", () => {
+  const merged = mergeHybridHits(
+    [{ id: "only-kw", score: 0.3, text: "kw", metadata: {} }],
+    [{ id: "only-vec", score: 0.7, text: "vec", metadata: {} }],
+    { keywordWeight: 0.4, vectorWeight: 0.6 },
+  );
+  assert.equal(merged.length, 2);
+  assert.ok(merged.some((item) => item.id === "only-kw"));
+  assert.ok(merged.some((item) => item.id === "only-vec"));
+  assert.equal(merged[0]?.id, "only-vec");
+});
+
+
+
+
+====================================================================================================
+FILE: main-server package.json
+PATH: D:\health-manager\ai-server-link\apps\main-server\package.json
+====================================================================================================
+
+{
+  "name": "main-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/app.js",
+  "scripts": {
+    "dev": "tsx src/app.ts",
+    "build": "tsc -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs src"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "embedding-core": "workspace:*",
+    "fastify": "^5.1.0",
+    "ingestion-core": "workspace:*",
+    "memory-core": "workspace:*",
+    "model-core": "workspace:*",
+    "plans-core": "workspace:*",
+    "protocol": "workspace:*",
+    "records-core": "workspace:*",
+    "runtime-core": "workspace:*",
+    "scheduler-core": "workspace:*",
+    "search-core": "workspace:*",
+    "tool-core": "workspace:*",
+    "vector-store-core": "workspace:*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}
+
+
+
+
+====================================================================================================
+FILE: main-server app.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\app.ts
+====================================================================================================
+
+/**
+ * Runtime Core 主程序入�? *
+ * 所属模块：
+ * * main-server
+ *
+ * 文件作用�? * * 组装 main-server 所有核心依赖并启动 HTTP + WebSocket 服务
+ * * 暴露内部事件入口�?agent-runtime 回传流式事件
+ *
+ * 主要功能�? * * buildMainServer
+ * * 注册 /internal/runtime/events
+ * * 安装 websocket 服务
+ *
+ * 依赖�? * * fastify
+ * * protocol
+ * * runtime-core
+ * * scheduler-core
+ * * 本地 ws/runtime/gateways 组件
+ *
+ * 注意事项�? * * 本文件只负责装配，不承载业务细节
+ */
+
+import "dotenv/config";
+import Fastify, { type FastifyInstance } from "fastify";
+import type { InternalRuntimeEventsRequest } from "protocol";
+import {
+  DefaultTextParser,
+  IngestionService,
+  MockPublisher,
+} from "ingestion-core";
+import {
+  DefaultFallbackPolicy,
+  DefaultRetryPolicy,
+  InMemoryModelCatalog,
+  ModelInvokeService,
+  ModelRouter,
+  MockProviderAdapter,
+} from "model-core";
+import { InMemoryRunStore, InMemorySessionStore } from "runtime-core";
+import {
+  DefaultDispatchPolicy,
+  InMemoryAgentRegistry,
+  InMemoryRunQueue,
+  RunScheduler,
+} from "scheduler-core";
+import {
+  MockRerankAdapter,
+  SearchService,
+} from "search-core";
+import {
+  createMemorySearchTool,
+  createMemorySummarizeTool,
+  createMemoryWriteTool,
+  createPlansActivateTool,
+  createPlansExpandTool,
+  createPlansPauseTool,
+  createPlansQueryTool,
+  createPlansWriteTool,
+  createRecordsQueryTool,
+  createRecordsUpdateTool,
+  createRecordsWriteTool,
+  createSearchQueryTool,
+  createUserMetaQueryTool,
+  createUserMetaWriteTool,
+  type ToolDefinition,
+} from "tool-core";
+import { AgentGateway } from "./gateways/agent-gateway";
+import { IngestionGateway } from "./gateways/ingestion-gateway";
+import { MemoryGateway } from "./gateways/memory-gateway";
+import { ModelGateway } from "./gateways/model-gateway";
+import { RecordsPlansGateway } from "./gateways/records-plans-gateway";
+import { SearchGateway } from "./gateways/search-gateway";
+import { registerIngestionChunkRoute } from "./routes/ingestion-chunk";
+import { registerIngestionEmbedRoute } from "./routes/ingestion-embed";
+import { registerIngestionIndexRoute } from "./routes/ingestion-index";
+import { registerIngestionParseRoute } from "./routes/ingestion-parse";
+import { registerIngestionPublishRoute } from "./routes/ingestion-publish";
+import { registerIngestionUploadRoute } from "./routes/ingestion-upload";
+import { registerInternalMemorySearchRoute } from "./routes/internal-memory-search";
+import { registerInternalMemorySummarizeRoute } from "./routes/internal-memory-summarize";
+import { registerInternalMemoryWriteRoute } from "./routes/internal-memory-write";
+import { registerInternalModelRoutes } from "./routes/internal-model-invoke";
+import { registerInternalPlansActivateRoute } from "./routes/internal-plans-activate";
+import { registerInternalPlansExpandRoute } from "./routes/internal-plans-expand";
+import { registerInternalPlansPauseRoute } from "./routes/internal-plans-pause";
+import { registerInternalPlansQueryRoute } from "./routes/internal-plans-query";
+import { registerInternalPlansWriteRoute } from "./routes/internal-plans-write";
+import { registerInternalRecordsQueryRoute } from "./routes/internal-records-query";
+import { registerInternalRecordsUpdateRoute } from "./routes/internal-records-update";
+import { registerInternalRecordsWriteRoute } from "./routes/internal-records-write";
+import { registerInternalSearchQueryRoute } from "./routes/internal-search-query";
+import { registerInternalToolRoutes } from "./routes/internal-tools";
+import { registerInternalUserMetaQueryRoute } from "./routes/internal-user-meta-query";
+import { registerInternalUserMetaWriteRoute } from "./routes/internal-user-meta-write";
+import { EventRelay } from "./runtime/event-relay";
+import { RunService } from "./runtime/run-service";
+import { SessionManager } from "./runtime/session-manager";
+import { ConnectionManager } from "./ws/connection-manager";
+import { WsMessageHandler } from "./ws/ws-message-handler";
+import { RuntimeWsServer } from "./ws/server";
+import { createPrismaModule } from "./modules/database/prisma.module";
+import { RecordsRepository } from "./repositories/records.repository";
+import { PlansRepository } from "./repositories/plans.repository";
+import { UserMetaRepository } from "./repositories/user-meta.repository";
+import { MemoryRepository } from "./repositories/memory.repository";
+import { RunRepository } from "./repositories/run.repository";
+import { RunEventRepository } from "./repositories/run-event.repository";
+import { ToolCallLogRepository } from "./repositories/tool-call-log.repository";
+import { ModelInvokeLogRepository } from "./repositories/model-invoke-log.repository";
+import { AuditLogRepository } from "./repositories/audit-log.repository";
+import { PersistentRecordsService } from "./modules/records/services/records.service";
+import { PersistentPlansService } from "./modules/plans/services/plans.service";
+import { PersistentUserMetaService } from "./modules/user-meta/services/user-meta.service";
+import { PersistentMemoryService } from "./modules/memory/services/memory.service";
+import { AuditLogService } from "./modules/audit/services/audit-log.service";
+import { RunLogService } from "./modules/runtime/services/run-log.service";
+import { ToolCallLogService } from "./modules/runtime/services/tool-call-log.service";
+import { ModelInvokeLogService } from "./modules/model/services/model-invoke-log.service";
+import { createRedisModule } from "./modules/redis/redis.module";
+import { RuntimeCacheService } from "./modules/runtime/services/runtime-cache.service";
+import { KnowledgeRepository } from "./repositories/knowledge.repository";
+import { IngestionTaskRepository } from "./repositories/ingestion-task.repository";
+import { IngestionLogRepository } from "./repositories/ingestion-log.repository";
+import { RetrievalLogRepository } from "./repositories/retrieval-log.repository";
+import { DatabaseKnowledgeSourceStore } from "./modules/ingestion/services/knowledge-source.store";
+import { DatabaseIngestionTaskStore } from "./modules/ingestion/services/ingestion-task.store";
+import { DatabaseIngestionLogSink } from "./modules/ingestion/services/ingestion-log.sink";
+import { KnowledgeKeywordSearchAdapter } from "./modules/search/services/knowledge-keyword-search.adapter";
+import { DatabaseRetrievalLogSink } from "./modules/search/services/retrieval-log.sink";
+import { DeterministicEmbedder } from "./modules/ingestion/services/embedding-provider";
+import { VectorIndexWriter } from "./modules/ingestion/services/vector-index.writer";
+import { LanceDbVectorSearchAdapter } from "./modules/search/services/vector-search.adapter";
+import { VectorIndexRepository } from "./repositories/vector-index.repository";
+import { LanceDbVectorStore } from "vector-store-core";
+import { getVectorStoreConfig } from "./config/vector-store.config";
+
+/**
+ * 主服务构建选项
+ */
+export interface MainServerOptions {
+  port?: number;
+  host?: string;
+  defaultAgentRuntimeUrl?: string;
+}
+
+/**
+ * 主服务上下文
+ */
+export interface MainServerContext {
+  app: FastifyInstance;
+  runScheduler: RunScheduler;
+  runService: RunService;
+  sessionManager: SessionManager;
+  searchGateway: SearchGateway;
+  ingestionGateway: IngestionGateway;
+  memoryGateway: MemoryGateway;
+  tools: ToolDefinition[];
+}
+
+/**
+ * 构建主服�? *
+ * 功能说明�? * * 初始化存储、调度、网关、事件转发和 websocket �? * * 注册内部事件回传接口
+ *
+ * @param options 启动选项
+ * @returns 主服务上下文
+ */
+export function buildMainServer(options: MainServerOptions = {}): MainServerContext {
+  const app = Fastify({ logger: true });
+  const prismaModule = createPrismaModule();
+  const redisModule = createRedisModule();
+  const runtimeCacheService = new RuntimeCacheService(redisModule.redis);
+
+  const sessionStore = new InMemorySessionStore();
+  const runStore = new InMemoryRunStore();
+  const runQueue = new InMemoryRunQueue();
+  const agentRegistry = new InMemoryAgentRegistry();
+  const connectionManager = new ConnectionManager();
+  const knowledgeRepository = new KnowledgeRepository(prismaModule.prisma);
+  const retrievalLogRepository = new RetrievalLogRepository(prismaModule.prisma);
+  const vectorStoreConfig = getVectorStoreConfig();
+  const vectorStore = new LanceDbVectorStore(vectorStoreConfig);
+  const vectorIndexRepository = new VectorIndexRepository(vectorStore);
+  const searchService = new SearchService({
+    keywordAdapter: new KnowledgeKeywordSearchAdapter(knowledgeRepository),
+    vectorAdapter: new LanceDbVectorSearchAdapter(
+      knowledgeRepository,
+      vectorIndexRepository,
+    ),
+    rerankAdapter: new MockRerankAdapter(),
+    retrievalLogSink: new DatabaseRetrievalLogSink(retrievalLogRepository),
+  });
+  const searchGateway = new SearchGateway(searchService);
+  const modelCatalog = new InMemoryModelCatalog();
+  const modelInvokeService = new ModelInvokeService({
+    catalog: modelCatalog,
+    router: new ModelRouter(modelCatalog),
+    providerAdapter: new MockProviderAdapter(),
+    retryPolicy: new DefaultRetryPolicy(),
+    fallbackPolicy: new DefaultFallbackPolicy(),
+  });
+  const modelGateway = new ModelGateway(modelCatalog, modelInvokeService);
+  const runRepository = new RunRepository(prismaModule.prisma);
+  const runEventRepository = new RunEventRepository(prismaModule.prisma);
+  const toolCallLogRepository = new ToolCallLogRepository(prismaModule.prisma);
+  const modelInvokeLogRepository = new ModelInvokeLogRepository(prismaModule.prisma);
+  const auditLogRepository = new AuditLogRepository(prismaModule.prisma);
+  const recordsRepository = new RecordsRepository(prismaModule.prisma);
+  const plansRepository = new PlansRepository(prismaModule.prisma);
+  const userMetaRepository = new UserMetaRepository(prismaModule.prisma);
+  const memoryRepository = new MemoryRepository(prismaModule.prisma);
+
+  const auditLogService = new AuditLogService(auditLogRepository);
+  const userMetaService = new PersistentUserMetaService(
+    userMetaRepository,
+    auditLogService,
+  );
+  const memoryService = new PersistentMemoryService(
+    memoryRepository,
+    auditLogService,
+  );
+  const recordsService = new PersistentRecordsService(
+    recordsRepository,
+    auditLogService,
+  );
+  const plansService = new PersistentPlansService(plansRepository, auditLogService);
+  const runLogService = new RunLogService(runRepository, runEventRepository);
+  const toolCallLogService = new ToolCallLogService(toolCallLogRepository);
+  const modelInvokeLogService = new ModelInvokeLogService(modelInvokeLogRepository);
+  const memoryGateway = new MemoryGateway(
+    userMetaService,
+    memoryService,
+  );
+  const recordsPlansGateway = new RecordsPlansGateway(
+    recordsService,
+    plansService,
+  );
+  const tools: ToolDefinition[] = [
+    createSearchQueryTool(searchService),
+    createUserMetaWriteTool(userMetaService as never),
+    createUserMetaQueryTool(userMetaService as never),
+    createMemoryWriteTool(memoryService as never),
+    createMemorySearchTool(memoryService as never),
+    createMemorySummarizeTool(memoryService as never),
+    createRecordsWriteTool(recordsService as never),
+    createRecordsQueryTool(recordsService as never),
+    createRecordsUpdateTool(recordsService as never),
+    createPlansWriteTool(plansService as never),
+    createPlansQueryTool(plansService as never),
+    createPlansActivateTool(plansService as never),
+    createPlansPauseTool(plansService as never),
+    createPlansExpandTool(plansService as never),
+  ];
+  const ingestionTaskRepository = new IngestionTaskRepository(prismaModule.prisma);
+  const ingestionLogRepository = new IngestionLogRepository(prismaModule.prisma);
+  const ingestionTaskStore = new DatabaseIngestionTaskStore(
+    ingestionTaskRepository,
+    knowledgeRepository,
+  );
+  const knowledgeSourceStore = new DatabaseKnowledgeSourceStore(knowledgeRepository);
+  const ingestionService = new IngestionService({
+    taskStore: ingestionTaskStore,
+    sourceStore: knowledgeSourceStore,
+    logSink: new DatabaseIngestionLogSink(ingestionLogRepository),
+    parser: new DefaultTextParser(),
+    embedder: new DeterministicEmbedder(),
+    indexer: new VectorIndexWriter(knowledgeRepository, vectorIndexRepository),
+    publisher: new MockPublisher(knowledgeSourceStore),
+  });
+  const ingestionGateway = new IngestionGateway(ingestionService);
+
+  const sessionManager = new SessionManager(sessionStore);
+  const runService = new RunService(runStore, sessionStore);
+  const agentGateway = new AgentGateway();
+  const dispatchPolicy = new DefaultDispatchPolicy(
+    sessionStore,
+    runStore,
+    agentRegistry,
+  );
+  const runScheduler = new RunScheduler(
+    runQueue,
+    runStore,
+    sessionStore,
+    dispatchPolicy,
+    agentGateway,
+  );
+  const wsMessageHandler = new WsMessageHandler(
+    sessionManager,
+    runService,
+    runScheduler,
+    connectionManager,
+    runLogService,
+  );
+  const relayWithLogs = new EventRelay(
+    sessionManager,
+    connectionManager,
+    runService,
+    runLogService,
+  );
+  const wsServer = new RuntimeWsServer(
+    connectionManager,
+    sessionManager,
+    wsMessageHandler,
+  );
+
+  const defaultAgentRuntimeUrl =
+    options.defaultAgentRuntimeUrl ??
+    process.env.DEFAULT_AGENT_RUNTIME_URL ??
+    "http://127.0.0.1:4100";
+  const defaultAgentId = process.env.DEFAULT_AGENT_ID ?? "general.default";
+  void agentRegistry.register({
+    agentRuntimeId: "runtime-default",
+    agentId: defaultAgentId,
+    status: "healthy",
+    activeRuns: 0,
+    lastHeartbeatAt: new Date().toISOString(),
+    baseUrl: defaultAgentRuntimeUrl,
+  });
+
+  app.get("/api/health", async () => ({ ok: true }));
+  registerInternalSearchQueryRoute(app, searchGateway);
+  registerInternalToolRoutes(app, tools, toolCallLogService);
+  registerInternalModelRoutes(app, modelGateway, modelInvokeLogService);
+  registerInternalUserMetaWriteRoute(app, memoryGateway);
+  registerInternalUserMetaQueryRoute(app, memoryGateway);
+  registerInternalMemoryWriteRoute(app, memoryGateway);
+  registerInternalMemorySearchRoute(app, memoryGateway);
+  registerInternalMemorySummarizeRoute(app, memoryGateway);
+  registerInternalRecordsWriteRoute(app, recordsPlansGateway);
+  registerInternalRecordsQueryRoute(app, recordsPlansGateway);
+  registerInternalRecordsUpdateRoute(app, recordsPlansGateway);
+  registerInternalPlansWriteRoute(app, recordsPlansGateway);
+  registerInternalPlansQueryRoute(app, recordsPlansGateway);
+  registerInternalPlansActivateRoute(app, recordsPlansGateway);
+  registerInternalPlansPauseRoute(app, recordsPlansGateway);
+  registerInternalPlansExpandRoute(app, recordsPlansGateway);
+  registerIngestionUploadRoute(app, ingestionGateway);
+  registerIngestionParseRoute(app, ingestionGateway);
+  registerIngestionChunkRoute(app, ingestionGateway);
+  registerIngestionEmbedRoute(app, ingestionGateway);
+  registerIngestionIndexRoute(app, ingestionGateway);
+  registerIngestionPublishRoute(app, ingestionGateway);
+
+  app.post<{
+    Body: InternalRuntimeEventsRequest;
+  }>("/internal/runtime/events", async (request) => {
+    const body = request.body;
+    if (!body || !body.sessionId || !Array.isArray(body.events)) {
+      return { ok: false };
+    }
+    await relayWithLogs.relay(body.sessionId, body.events);
+    return { ok: true };
+  });
+
+  app.addHook("onReady", async () => {
+    await prismaModule.prisma.connect();
+    wsServer.install(app.server);
+    void runtimeCacheService;
+  });
+
+  app.addHook("onClose", async () => {
+    await prismaModule.prisma.disconnect();
+  });
+
+  return {
+    app,
+    runScheduler,
+    runService,
+    sessionManager,
+    searchGateway,
+    ingestionGateway,
+    memoryGateway,
+    tools,
+  };
+}
+
+/**
+ * 启动主服�? *
+ * 功能说明�? * * 按环境变量或默认值启�?main-server
+ *
+ * @returns void
+ */
+async function start(): Promise<void> {
+  const port = Number(process.env.PORT ?? 4000);
+  const host = process.env.HOST ?? "0.0.0.0";
+  const { app } = buildMainServer({ port, host });
+  await app.listen({ port, host });
+}
+
+if (require.main === module) {
+  void start();
+}
+
+
+
+
+====================================================================================================
+FILE: vector-store.config.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\config\vector-store.config.ts
+====================================================================================================
+
+/**
+ * 向量存储配置读取�? *
+ * 所属模块：
+ * * main-server/config
+ *
+ * 文件作用�? * * 统一读取 LanceDB 向量存储配置
+ * * �?vector-store 适配器提供稳定默认�? *
+ * 主要功能�? * * getVectorStoreConfig
+ *
+ * 依赖�? * * process.env
+ * * node:path
+ *
+ * 注意事项�? * * 默认使用本地 storage/lancedb 目录
+ */
+
+import { join } from "node:path";
+
+/**
+ * 向量存储配置
+ */
+export interface VectorStoreConfig {
+  uri: string;
+  tableName: string;
+}
+
+/**
+ * 读取向量存储配置
+ *
+ * @returns 向量存储配置
+ */
+export function getVectorStoreConfig(): VectorStoreConfig {
+  const uri =
+    process.env.LANCEDB_URI ?? join(process.cwd(), "storage", "lancedb");
+  const tableName = process.env.LANCEDB_TABLE ?? "knowledge_chunks";
+  return { uri, tableName };
+}
+
+
+
+
+====================================================================================================
+FILE: vector-index.repository.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\repositories\vector-index.repository.ts
+====================================================================================================
+
+/**
+ * Vector Index 仓储
+ *
+ * 所属模块：
+ * * main-server/repositories
+ *
+ * 文件作用�? * * 封装向量索引写入与检�? * * 隔离业务层与向量�?SDK
+ *
+ * 主要功能�? * * upsert
+ * * query
+ *
+ * 依赖�? * * vector-store-core
+ *
+ * 注意事项�? * * 本仓储仅处理向量存取，不做业务过�? */
+
+import type {
+  VectorQuery,
+  VectorRecord,
+  VectorSearchResult,
+  VectorStore,
+} from "vector-store-core";
+
+export class VectorIndexRepository {
+  constructor(private readonly store: VectorStore) {}
+
+  /**
+   * 幂等写入向量记录
+   *
+   * 功能说明�?   * * 调用底层 VectorStore upsert
+   *
+   * @param records 向量记录
+   * @returns void
+   */
+  async upsert(records: VectorRecord[]): Promise<void> {
+    await this.store.upsert(records);
+  }
+
+  /**
+   * 执行向量检�?   *
+   * 功能说明�?   * * 调用底层 VectorStore query
+   *
+   * @param query 查询参数
+   * @returns 检索结�?   */
+  async query(query: VectorQuery): Promise<VectorSearchResult[]> {
+    return this.store.query(query);
+  }
+}
+
+
+
+
+====================================================================================================
+FILE: knowledge.repository.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\repositories\knowledge.repository.ts
+====================================================================================================
+
+/**
+ * Knowledge 仓储
+ *
+ * 所属模块：
+ * * main-server/repositories
+ *
+ * 文件作用�? * * 封装 knowledge_sources/documents/chunks 表读写能�? */
+
+import type {
+  KnowledgeChunk,
+  KnowledgeDocument,
+  KnowledgeSource,
+  Prisma,
+} from "@prisma/client";
+import { PrismaService } from "../modules/database/prisma.service";
+
+export class KnowledgeRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getSourceById(sourceId: string): Promise<KnowledgeSource | null> {
+    return this.prisma.knowledgeSource.findUnique({ where: { id: sourceId } });
+  }
+
+  async upsertSource(data: Prisma.KnowledgeSourceCreateInput): Promise<KnowledgeSource> {
+    return this.prisma.knowledgeSource.upsert({
+      where: { id: data.id ?? "" },
+      create: data,
+      update: {
+        tenantId: data.tenantId,
+        fileUri: data.fileUri,
+        status: data.status,
+        metadataJson: data.metadataJson ?? undefined,
+      },
+    });
+  }
+
+  async updateSourceStatus(sourceId: string, status: string): Promise<void> {
+    await this.prisma.knowledgeSource.update({
+      where: { id: sourceId },
+      data: { status },
+    });
+  }
+
+  async updateDocumentStatusBySource(sourceId: string, status: string): Promise<void> {
+    await this.prisma.knowledgeDocument.updateMany({
+      where: { sourceId },
+      data: { status },
+    });
+  }
+
+  async createSource(data: Prisma.KnowledgeSourceCreateInput): Promise<KnowledgeSource> {
+    return this.prisma.knowledgeSource.create({ data });
+  }
+
+  async createDocument(data: Prisma.KnowledgeDocumentCreateInput): Promise<KnowledgeDocument> {
+    return this.prisma.knowledgeDocument.create({ data });
+  }
+
+  async getDocumentBySourceId(sourceId: string): Promise<KnowledgeDocument | null> {
+    return this.prisma.knowledgeDocument.findFirst({
+      where: { sourceId },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  async createChunks(data: Prisma.KnowledgeChunkCreateManyInput[]): Promise<void> {
+    if (data.length === 0) {
+      return;
+    }
+    await this.prisma.knowledgeChunk.createMany({ data });
+  }
+
+  async deleteChunksByDocumentId(documentId: string): Promise<void> {
+    await this.prisma.knowledgeChunk.deleteMany({ where: { documentId } });
+  }
+
+  async searchPublishedChunks(params: {
+    query: string;
+    tenantId?: string;
+    topK: number;
+  }): Promise<
+    Array<{
+      chunk: KnowledgeChunk;
+      document: KnowledgeDocument;
+      source: KnowledgeSource;
+    }>
+  > {
+    const tokens = params.query.split(/\s+/).filter(Boolean);
+    return this.prisma.knowledgeChunk.findMany({
+      where: {
+        document: {
+          source: {
+            status: "published",
+            tenantId: params.tenantId,
+          },
+        },
+        OR: tokens.length
+          ? tokens.map((token) => ({
+              chunkText: { contains: token, mode: "insensitive" },
+            }))
+          : [{ chunkText: { contains: params.query, mode: "insensitive" } }],
+      },
+      take: params.topK,
+      include: {
+        document: {
+          include: { source: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }).then((rows) =>
+      rows.map((row) => ({
+        chunk: row,
+        document: row.document,
+        source: row.document.source,
+      })),
+    );
+  }
+
+  async listDocumentsBySourceId(sourceId: string): Promise<KnowledgeDocument[]> {
+    return this.prisma.knowledgeDocument.findMany({
+      where: { sourceId },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  async listChunksByDocumentId(documentId: string): Promise<KnowledgeChunk[]> {
+    return this.prisma.knowledgeChunk.findMany({
+      where: { documentId },
+      orderBy: { chunkIndex: "asc" },
+    });
+  }
+
+  async getPublishedChunkIds(chunkIds: string[]): Promise<string[]> {
+    if (!chunkIds.length) {
+      return [];
+    }
+    const rows = await this.prisma.knowledgeChunk.findMany({
+      where: {
+        id: { in: chunkIds },
+        document: {
+          source: {
+            status: "published",
+          },
+        },
+      },
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
+  }
+}
+
+
+
+
+====================================================================================================
+FILE: retrieval-log.repository.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\repositories\retrieval-log.repository.ts
+====================================================================================================
+
+/**
+ * Search Retrieval Log 仓储
+ *
+ * 所属模块：
+ * * main-server/repositories
+ *
+ * 文件作用�? * * 封装 retrieval_logs 表读�? * * 提供 search.query 的检索日志持久化能力
+ *
+ * 主要功能�? * * createLog
+ *
+ * 依赖�? * * PrismaService：数据库访问
+ *
+ * 注意事项�? * * 仅做持久化，不承担业务编�? */
+
+import type { Prisma, RetrievalLog } from "@prisma/client";
+import { PrismaService } from "../modules/database/prisma.service";
+
+export class RetrievalLogRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * 写入检索日�?   *
+   * 功能说明�?   * �?search.query 产生的日志写入数据库
+   *
+   * @param data 日志数据
+   * @returns 已写入日志记�?   */
+  async createLog(data: Prisma.RetrievalLogCreateInput): Promise<RetrievalLog> {
+    return this.prisma.retrievalLog.create({ data });
+  }
+}
+
+
+
+
+====================================================================================================
+FILE: main-server embedding-provider.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\modules\ingestion\services\embedding-provider.ts
+====================================================================================================
+
+/**
+ * Ingestion 向量提供器适配
+ *
+ * 所属模块：
+ * * main-server/modules/ingestion
+ *
+ * 文件作用�? * * �?embedding-core provider 适配�?ingestion-core Embedder
+ * * 统一向量维度与稳定性策�? *
+ * 主要功能�? * * DeterministicEmbedder
+ *
+ * 依赖�? * * ingestion-core Embedder
+ * * embedding-core DeterministicEmbeddingProvider
+ * * search-core profile
+ *
+ * 注意事项�? * * 当前为本地可运行实现，后续可替换为真�?provider
+ */
+
+import { DeterministicEmbeddingProvider } from "embedding-core";
+import type { Embedder } from "ingestion-core";
+import { getDefaultSearchProfile } from "search-core";
+
+/**
+ * 确定�?Embedder
+ */
+export class DeterministicEmbedder implements Embedder {
+  private readonly provider = new DeterministicEmbeddingProvider();
+
+  /**
+   * 生成向量
+   *
+   * 功能说明�?   * * 使用 deterministic provider 生成稳定向量
+   *
+   * @param chunks 文本�?   * @param profileId profileId（预留）
+   * @returns 向量列表
+   */
+  async embed(chunks: string[], profileId?: string): Promise<number[][]> {
+    void profileId;
+    const dimension = getDefaultSearchProfile().embedding.dimension;
+    const result = await this.provider.embed({
+      texts: chunks,
+      dimension,
+      providerName: "deterministic",
+    });
+    return result.vectors;
+  }
+}
+
+
+
+
+====================================================================================================
+FILE: vector-index.writer.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\modules\ingestion\services\vector-index.writer.ts
+====================================================================================================
+
+/**
+ * Ingestion 向量索引写入�? *
+ * 所属模块：
+ * * main-server/modules/ingestion
+ *
+ * 文件作用�? * * �?ingestion-core index 阶段写入向量�? * * 负责从数据库读取 chunk 结构并写�?LanceDB
+ *
+ * 主要功能�? * * VectorIndexWriter
+ *
+ * 依赖�? * * ingestion-core Indexer
+ * * KnowledgeRepository
+ * * VectorIndexRepository
+ *
+ * 注意事项�? * * 通过 chunkIndex 对齐 embeddings
+ * * 仅写入，不做业务过滤
+ */
+
+import type { Indexer } from "ingestion-core";
+import type { VectorRecord } from "vector-store-core";
+import { KnowledgeRepository } from "../../../repositories/knowledge.repository";
+import { VectorIndexRepository } from "../../../repositories/vector-index.repository";
+
+/**
+ * 向量索引写入�? */
+export class VectorIndexWriter implements Indexer {
+  constructor(
+    private readonly knowledgeRepository: KnowledgeRepository,
+    private readonly vectorRepository: VectorIndexRepository,
+  ) {}
+
+  /**
+   * 写入向量索引
+   *
+   * 功能说明�?   * * 根据 sourceId 读取 chunk �?document 信息
+   * * 对齐 embeddings 并写入向量库
+   *
+   * @param params 索引参数
+   * @returns void
+   */
+  async index(params: {
+    sourceId: string;
+    chunks: string[];
+    embeddings: number[][];
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    const source = await this.knowledgeRepository.getSourceById(params.sourceId);
+    if (!source) {
+      throw new Error("Source not found for vector index");
+    }
+    const document = await this.knowledgeRepository.getDocumentBySourceId(params.sourceId);
+    if (!document) {
+      throw new Error("Document not found for vector index");
+    }
+    const chunks = await this.knowledgeRepository.listChunksByDocumentId(document.id);
+    if (!chunks.length) {
+      throw new Error("No chunks found for vector index");
+    }
+    const length = Math.min(chunks.length, params.embeddings.length);
+    const records: VectorRecord[] = [];
+    for (let index = 0; index < length; index += 1) {
+      const chunk = chunks[index];
+      const embedding = params.embeddings[index];
+      records.push({
+        chunkId: chunk.id,
+        documentId: document.id,
+        sourceId: source.id,
+        tenantId: source.tenantId,
+        text: chunk.chunkText,
+        embedding,
+        metadata: (chunk.metadataJson as Record<string, unknown> | undefined) ?? params.metadata,
+      });
+    }
+    await this.vectorRepository.upsert(records);
+  }
+}
+
+
+
+
+
+====================================================================================================
+FILE: knowledge-keyword-search.adapter.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\modules\search\services\knowledge-keyword-search.adapter.ts
+====================================================================================================
+
+/**
+ * Search 数据库关键字检索适配�? *
+ * 所属模块：
+ * * main-server/modules/search
+ *
+ * 文件作用�? * * 基于 knowledge_chunks / knowledge_documents / knowledge_sources 执行 keyword 检�? * * 仅返回已 published 的知识内�? *
+ * 主要功能�? * * search
+ *
+ * 依赖�? * * KnowledgeRepository
+ * * search-core KeywordSearchAdapter
+ *
+ * 注意事项�? * * 本阶段仍�?keyword 检索，不接向量�? */
+
+import type { KeywordSearchAdapter } from "search-core";
+import { clampScore } from "search-core";
+import type { NormalizedFilters, NormalizedQuery, KeywordHit } from "search-core";
+import { KnowledgeRepository } from "../../../repositories/knowledge.repository";
+
+export class KnowledgeKeywordSearchAdapter implements KeywordSearchAdapter {
+  constructor(private readonly knowledgeRepository: KnowledgeRepository) {}
+
+  /**
+   * 执行关键字检�?   *
+   * 功能说明�?   * 从知�?chunk 中按关键字检索并返回 hit
+   *
+   * @param params 检索参�?   * @returns 检索命中列�?   */
+  async search(params: {
+    space: string;
+    query: NormalizedQuery;
+    filters: NormalizedFilters;
+    topK: number;
+  }): Promise<KeywordHit[]> {
+    const tenantId = resolveTenantId(params.filters.values);
+    const results = await this.knowledgeRepository.searchPublishedChunks({
+      query: params.query.normalized,
+      tenantId,
+      topK: params.topK,
+    });
+    return results.map((result, index) => ({
+      id: result.chunk.id,
+      score: clampScore(0.9 - index * 0.05),
+      text: result.chunk.chunkText,
+      metadata: {
+        space: params.space,
+        tenantId: result.source.tenantId,
+        sourceId: result.source.id,
+        documentId: result.document.id,
+        chunkId: result.chunk.id,
+      },
+    }));
+  }
+}
+
+/**
+ * 解析 tenantId
+ *
+ * 功能说明�? * �?filters 中读�?tenant_id �?tenantId
+ *
+ * @param filters 过滤条件
+ * @returns tenantId
+ */
+function resolveTenantId(filters: Record<string, unknown>): string | undefined {
+  if (typeof filters.tenant_id === "string" && filters.tenant_id) {
+    return filters.tenant_id;
+  }
+  if (typeof filters.tenantId === "string" && filters.tenantId) {
+    return filters.tenantId;
+  }
+  return undefined;
+}
+
+
+
+
+====================================================================================================
+FILE: vector-search.adapter.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\modules\search\services\vector-search.adapter.ts
+====================================================================================================
+
+import { DeterministicEmbeddingProvider } from "embedding-core";
+import type { SearchProfile } from "search-core";
+import type { NormalizedFilters, NormalizedQuery, VectorHit, VectorSearchAdapter } from "search-core";
+import { KnowledgeRepository } from "../../../repositories/knowledge.repository";
+import { VectorIndexRepository } from "../../../repositories/vector-index.repository";
+
+export class LanceDbVectorSearchAdapter implements VectorSearchAdapter {
+  private readonly provider = new DeterministicEmbeddingProvider();
+
+  constructor(
+    private readonly knowledgeRepository: KnowledgeRepository,
+    private readonly vectorRepository: VectorIndexRepository,
+  ) {}
+
+  async search(params: {
+    space: string;
+    query: NormalizedQuery;
+    filters: NormalizedFilters;
+    topK: number;
+    profile: SearchProfile;
+  }): Promise<VectorHit[]> {
+    const dimension = params.profile.embedding.dimension;
+
+    const embedding = await this.provider.embed({
+      texts: [params.query.normalized],
+      dimension,
+      providerName: "deterministic",
+    });
+
+    const tenantId = resolveTenantId(params.filters.values);
+
+    let rawHits: any[] = [];
+
+    try {
+      rawHits = await this.vectorRepository.query({
+        vector: embedding.vectors[0],
+        topK: params.topK,
+        tenantId,
+      });
+    } catch (err: any) {
+      console.warn("[vector-search] query failed:", err?.message || err);
+      return [];
+    }
+
+    if (!rawHits.length) {
+      return [];
+    }
+
+    const publishedIds = await this.knowledgeRepository.getPublishedChunkIds(
+      rawHits.map((hit) => hit.chunkId),
+    );
+
+    const publishedSet = new Set(publishedIds);
+
+    return rawHits
+      .filter((hit) => publishedSet.has(hit.chunkId))
+      .map((hit) => ({
+        id: hit.chunkId,
+        score: hit.score,
+        text: hit.text,
+        metadata: {
+          ...hit.metadata,
+          sourceId: hit.sourceId,
+          documentId: hit.documentId,
+          chunkId: hit.chunkId,
+        },
+      }));
+  }
+}
+
+function resolveTenantId(filters: Record<string, unknown>): string | undefined {
+  if (typeof filters.tenant_id === "string") return filters.tenant_id;
+  if (typeof filters.tenantId === "string") return filters.tenantId;
+  return undefined;
+}
+
+
+
+
+
+
+
+====================================================================================================
+FILE: retrieval-log.sink.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\modules\search\services\retrieval-log.sink.ts
+====================================================================================================
+
+/**
+ * Search 检索日志持久化实现
+ *
+ * 所属模块：
+ * * main-server/modules/search
+ *
+ * 文件作用�? * * �?search.query 的检索日志写入数据库
+ *
+ * 主要功能�? * * write
+ *
+ * 依赖�? * * RetrievalLogRepository
+ * * search-core RetrievalLogSink
+ *
+ * 注意事项�? * * 只做落库，不做业务统�? */
+
+import type { RetrievalLogRecord, RetrievalLogSink } from "search-core";
+import { RetrievalLogRepository } from "../../../repositories/retrieval-log.repository";
+
+export class DatabaseRetrievalLogSink implements RetrievalLogSink {
+  constructor(private readonly repository: RetrievalLogRepository) {}
+
+  /**
+   * 写入检索日�?   *
+   * 功能说明�?   * �?search-core 的日志记录持久化�?retrieval_logs
+   *
+   * @param record 日志记录
+   * @returns void
+   */
+  async write(record: RetrievalLogRecord): Promise<void> {
+    await this.repository.createLog({
+      space: record.space,
+      query: record.query,
+      normalizedQuery: record.normalizedQuery,
+      filtersJson: record.filters,
+      mode: record.mode,
+      topK: record.topK,
+      keywordHitCount: record.keywordHits ?? 0,
+      vectorHitCount: record.vectorHits ?? 0,
+      mergedHitCount: record.mergedHits ?? 0,
+      resultCount: record.resultCount ?? 0,
+      durationMs: record.durationMs ?? 0,
+    });
+  }
+}
+
+
+
+
+====================================================================================================
+FILE: ingestion-routes.test.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\ingestion-routes.test.ts
+====================================================================================================
+
+/**
+ * Ingestion 路由烟雾测试
+ *
+ * 所属模块：
+ * * main-server
+ *
+ * 文件作用�? * * 验证 ingestion 六个管理路由的最小闭环可�? */
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { buildMainServer } from "./app";
+import { hasDatabaseUrl, withPrisma } from "./tests/persistence-test.utils";
+
+test("ingestion admin routes should run full pipeline", async (t) => {
+  if (!hasDatabaseUrl()) {
+    t.skip("DATABASE_URL is not configured");
+    return;
+  }
+  const { app } = buildMainServer();
+  try {
+    const uploadRes = await app.inject({
+      method: "POST",
+      url: "/api/admin/ingestion/upload",
+      payload: {
+        rawText: "ingestion route smoke test text",
+        metadata: { tenant_id: "demo" },
+      },
+    });
+    assert.equal(uploadRes.statusCode, 200);
+    const uploadBody = uploadRes.json() as {
+      sourceId: string;
+      taskId: string;
+      status: string;
+    };
+    assert.equal(uploadBody.status, "uploaded");
+
+    const stagePayload = { sourceId: uploadBody.sourceId, taskId: uploadBody.taskId };
+
+    const parseRes = await app.inject({
+      method: "POST",
+      url: "/api/admin/ingestion/parse",
+      payload: stagePayload,
+    });
+    assert.equal(parseRes.statusCode, 200);
+    assert.equal((parseRes.json() as { status: string }).status, "parsed");
+
+    const chunkRes = await app.inject({
+      method: "POST",
+      url: "/api/admin/ingestion/chunk",
+      payload: stagePayload,
+    });
+    assert.equal(chunkRes.statusCode, 200);
+    assert.equal((chunkRes.json() as { status: string }).status, "chunked");
+
+    const embedRes = await app.inject({
+      method: "POST",
+      url: "/api/admin/ingestion/embed",
+      payload: { ...stagePayload, params: { profileId: "default" } },
+    });
+    assert.equal(embedRes.statusCode, 200);
+    assert.equal((embedRes.json() as { status: string }).status, "embedded");
+
+    const indexRes = await app.inject({
+      method: "POST",
+      url: "/api/admin/ingestion/index",
+      payload: stagePayload,
+    });
+    assert.equal(indexRes.statusCode, 200);
+    const indexBody = indexRes.json() as { status: string };
+    assert.equal(indexBody.status, "indexed");
+
+    const publishRes = await app.inject({
+      method: "POST",
+      url: "/api/admin/ingestion/publish",
+      payload: stagePayload,
+    });
+    assert.equal(publishRes.statusCode, 200);
+    assert.equal((publishRes.json() as { status: string }).status, "published");
+
+    await withPrisma(async (prisma) => {
+      const source = await prisma.knowledgeSource.findUnique({
+        where: { id: uploadBody.sourceId },
+      });
+      assert.ok(source);
+      assert.equal(source?.status, "published");
+      const documents = await prisma.knowledgeDocument.findMany({
+        where: { sourceId: uploadBody.sourceId },
+      });
+      assert.ok(documents.length >= 1);
+      const chunks = await prisma.knowledgeChunk.findMany({
+        where: { documentId: documents[0]?.id },
+      });
+      assert.ok(chunks.length >= 1);
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+
+
+
+====================================================================================================
+FILE: internal-tools.test.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\internal-tools.test.ts
+====================================================================================================
+
+/**
+ * Tool Core 内部工具路由测试
+ *
+ * 所属模块：
+ * * main-server
+ *
+ * 文件作用�? * * 验证 search.query 工具注册与执行接口可�? *
+ * 主要功能�? * * GET /internal/tools/schema 包含 search.query
+ * * POST /internal/tools/execute 可执�?search.query
+ *
+ * 依赖�? * * node:test
+ * * app 构建函数
+ *
+ * 注意事项�? * * 通过 app.inject 执行，不依赖外部网络
+ */
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { buildMainServer } from "./app";
+import { hasDatabaseUrl } from "./tests/persistence-test.utils";
+import { createPublishedKnowledge } from "./tests/knowledge-test.utils";
+
+/**
+ * 验证工具 schema 与执�? */
+test("internal tools routes should expose and execute search/meta/memory/records/plans tools", async (t) => {
+  if (!hasDatabaseUrl()) {
+    t.skip("DATABASE_URL is not configured");
+    return;
+  }
+  const userId = `u-tools-${Date.now()}`;
+  const recordSpace = `general-${Date.now()}`;
+  const planType = `routine-${Date.now()}`;
+  const tenantId = `tenant-${Date.now()}`;
+  const { app } = buildMainServer();
+  try {
+    const schemaRes = await app.inject({
+      method: "GET",
+      url: "/internal/tools/schema",
+    });
+    assert.equal(schemaRes.statusCode, 200);
+    const schemaBody = schemaRes.json() as {
+      tools: Array<{ name: string }>;
+    };
+    const required = [
+      "search.query",
+      "user.meta.write",
+      "user.meta.query",
+      "memory.write",
+      "memory.search",
+      "memory.summarize",
+      "records.write",
+      "records.query",
+      "records.update",
+      "plans.write",
+      "plans.query",
+      "plans.activate",
+      "plans.pause",
+      "plans.expand",
+    ];
+    for (const name of required) {
+      assert.ok(schemaBody.tools.some((item) => item.name === name));
+    }
+
+    await createPublishedKnowledge(
+      app,
+      "hello knowledge for search tool",
+      tenantId,
+    );
+
+    const executeRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "search.query",
+        args: {
+          space: "knowledge",
+          query: "hello",
+          filters: { tenant_id: tenantId },
+          topK: 5,
+          mode: "hybrid",
+          debug: true,
+        },
+      },
+    });
+    assert.equal(executeRes.statusCode, 200);
+    const executeBody = executeRes.json() as {
+      ok: boolean;
+      result?: { items?: unknown[]; debug?: { keywordHits?: number; vectorHits?: number } };
+    };
+    assert.equal(executeBody.ok, true);
+    assert.ok((executeBody.result?.items?.length ?? 0) >= 1);
+    assert.ok((executeBody.result?.debug?.keywordHits ?? 0) >= 1);
+    assert.ok((executeBody.result?.debug?.vectorHits ?? 0) >= 1);
+
+    const metaWriteRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "user.meta.write",
+        args: {
+          userId,
+          items: [{ key: "wakeup_time", value: "07:30", tags: ["habit"] }],
+        },
+      },
+    });
+    assert.equal(metaWriteRes.statusCode, 200);
+    assert.equal((metaWriteRes.json() as { ok: boolean }).ok, true);
+
+    await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "memory.write",
+        args: {
+          userId,
+          content: "I prefer morning exercise",
+          tags: ["habit"],
+        },
+      },
+    });
+    const memorySearchRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "memory.search",
+        args: {
+          userId,
+          query: "morning",
+          topK: 5,
+        },
+      },
+    });
+    assert.equal(memorySearchRes.statusCode, 200);
+    const memorySearchBody = memorySearchRes.json() as {
+      ok: boolean;
+      result?: { items?: unknown[] };
+    };
+    assert.equal(memorySearchBody.ok, true);
+    assert.ok((memorySearchBody.result?.items?.length ?? 0) >= 1);
+
+    const recordWriteRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "records.write",
+        args: {
+          userId,
+          space: recordSpace,
+          type: "note",
+          payload: { mood: "good" },
+        },
+      },
+    });
+    assert.equal(recordWriteRes.statusCode, 200);
+    assert.equal((recordWriteRes.json() as { ok: boolean }).ok, true);
+
+    const planWriteRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "plans.write",
+        args: {
+          userId,
+          space: recordSpace,
+          type: planType,
+          payload: { title: "morning plan" },
+        },
+      },
+    });
+    assert.equal(planWriteRes.statusCode, 200);
+    const planWriteBody = planWriteRes.json() as {
+      ok: boolean;
+      result?: { planId?: string };
+    };
+    assert.equal(planWriteBody.ok, true);
+
+    const planId = (planWriteBody.result as { planId?: string } | undefined)?.planId;
+    assert.ok(planId);
+    const planExpandRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "plans.expand",
+        args: {
+          planId,
+          date: "2026-04-13",
+        },
+      },
+    });
+    assert.equal(planExpandRes.statusCode, 200);
+    const planExpandBody = planExpandRes.json() as {
+      ok: boolean;
+      result?: { items?: unknown[] };
+    };
+    assert.equal(planExpandBody.ok, true);
+    assert.ok((planExpandBody.result?.items?.length ?? 0) >= 1);
+  } finally {
+    await app.close();
+  }
+});
+
+
+
+
+====================================================================================================
+FILE: knowledge-test.utils.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\tests\knowledge-test.utils.ts
+====================================================================================================
+
+/**
+ * Knowledge 测试辅助工具
+ *
+ * 所属模块：
+ * * main-server/tests
+ *
+ * 文件作用�? * * 提供上传并发布知识的测试辅助函数
+ *
+ * 主要功能�? * * createPublishedKnowledge
+ *
+ * 依赖�? * * FastifyInstance
+ *
+ * 注意事项�? * * 仅用于测试环境，不包含业务逻辑
+ */
+
+import type { FastifyInstance } from "fastify";
+
+/**
+ * 创建并发布知�? *
+ * 功能说明�? * 调用 ingestion admin routes 执行完整 pipeline
+ *
+ * @param app Fastify 实例
+ * @param rawText 原始文本
+ * @param tenantId 租户 ID
+ * @returns sourceId �?taskId
+ */
+export async function createPublishedKnowledge(
+  app: FastifyInstance,
+  rawText: string,
+  tenantId: string,
+): Promise<{ sourceId: string; taskId: string }> {
+  const uploadRes = await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/upload",
+    payload: {
+      rawText,
+      metadata: { tenant_id: tenantId },
+    },
+  });
+  if (uploadRes.statusCode !== 200) {
+    throw new Error(`upload failed: ${uploadRes.statusCode}`);
+  }
+  const uploadBody = uploadRes.json() as { sourceId: string; taskId: string };
+  const stagePayload = { sourceId: uploadBody.sourceId, taskId: uploadBody.taskId };
+
+  await app.inject({ method: "POST", url: "/api/admin/ingestion/parse", payload: stagePayload });
+  await app.inject({ method: "POST", url: "/api/admin/ingestion/chunk", payload: stagePayload });
+  await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/embed",
+    payload: { ...stagePayload, params: { profileId: "default" } },
+  });
+  await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/index",
+    payload: stagePayload,
+  });
+  await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/publish",
+    payload: stagePayload,
+  });
+
+  return uploadBody;
+}
+
+
+
+
+====================================================================================================
+FILE: search-hybrid.e2e.spec.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\tests\search-hybrid.e2e.spec.ts
+====================================================================================================
+
+/**
+ * Search Hybrid E2E 测试
+ *
+ * 所属模块：
+ * * main-server/tests
+ *
+ * 文件作用�? * * 验证 keyword/vector/hybrid 检索均可返回已发布知识
+ * * 验证 retrieval log 写入命中统计
+ *
+ * 主要功能�? * * ingestion pipeline
+ * * search.query (keyword/vector/hybrid)
+ *
+ * 依赖�? * * buildMainServer
+ * * knowledge-test.utils
+ * * persistence-test.utils
+ *
+ * 注意事项�? * * 依赖真实数据库与 LanceDB 环境
+ */
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { buildMainServer } from "../app";
+import { hasDatabaseUrl, withPrisma } from "./persistence-test.utils";
+import { createPublishedKnowledge } from "./knowledge-test.utils";
+
+test("search hybrid modes should return published knowledge hits", async (t) => {
+  if (!hasDatabaseUrl()) {
+    t.skip("DATABASE_URL is not configured");
+    return;
+  }
+  const { app } = buildMainServer();
+  const tenantId = `tenant-${Date.now()}`;
+  const tenantId2 = `tenant-${Date.now()}-alt`;
+  const rawText = "hybrid search knowledge text vector keyword";
+  const rawText2 = "hybrid search knowledge text vector keyword alt";
+  try {
+    await createPublishedKnowledge(app, rawText, tenantId);
+    await createPublishedKnowledge(app, rawText2, tenantId2);
+
+    const keywordRes = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "keyword",
+        filters: { tenant_id: tenantId },
+        topK: 5,
+        mode: "keyword",
+      },
+    });
+    assert.equal(keywordRes.statusCode, 200);
+    const keywordBody = keywordRes.json() as { items?: unknown[] };
+    assert.ok((keywordBody.items?.length ?? 0) >= 1);
+
+    const keywordRes2 = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "keyword",
+        filters: { tenant_id: tenantId2 },
+        topK: 5,
+        mode: "keyword",
+      },
+    });
+    assert.equal(keywordRes2.statusCode, 200);
+    const keywordBody2 = keywordRes2.json() as { items?: Array<{ id: string }> };
+    assert.ok((keywordBody2.items?.length ?? 0) >= 1);
+    assert.notEqual(keywordBody2.items?.[0]?.id, (keywordBody.items as Array<{ id: string }>)[0]?.id);
+
+    const vectorRes = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "vector",
+        filters: { tenant_id: tenantId },
+        topK: 5,
+        mode: "vector",
+      },
+    });
+    assert.equal(vectorRes.statusCode, 200);
+    const vectorBody = vectorRes.json() as { items?: unknown[] };
+    assert.ok((vectorBody.items?.length ?? 0) >= 1);
+
+    const vectorRes2 = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "vector",
+        filters: { tenant_id: tenantId2 },
+        topK: 5,
+        mode: "vector",
+      },
+    });
+    assert.equal(vectorRes2.statusCode, 200);
+    const vectorBody2 = vectorRes2.json() as { items?: Array<{ id: string }> };
+    assert.ok((vectorBody2.items?.length ?? 0) >= 1);
+    assert.notEqual(vectorBody2.items?.[0]?.id, (vectorBody.items as Array<{ id: string }>)[0]?.id);
+
+    const hybridRes = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "hybrid",
+        filters: { tenant_id: tenantId },
+        topK: 5,
+        mode: "hybrid",
+        debug: true,
+      },
+    });
+    assert.equal(hybridRes.statusCode, 200);
+    const hybridBody = hybridRes.json() as {
+      items?: unknown[];
+      debug?: { keywordHits?: number; vectorHits?: number };
+    };
+    assert.ok((hybridBody.items?.length ?? 0) >= 1);
+    assert.ok((hybridBody.debug?.keywordHits ?? 0) >= 1);
+    assert.ok((hybridBody.debug?.vectorHits ?? 0) >= 1);
+
+    await withPrisma(async (prisma) => {
+      const logs = await prisma.retrievalLog.findMany({
+        where: { space: "knowledge" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      });
+      assert.ok(logs.length >= 1);
+      const latest = logs[0];
+      assert.ok(latest.keywordHitCount >= 0);
+      assert.ok(latest.vectorHitCount >= 0);
+      assert.ok(latest.mergedHitCount >= 0);
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+
+
+
+
+
+
+
+====================================================================================================
+FILE: search-knowledge.e2e.spec.ts
+PATH: D:\health-manager\ai-server-link\apps\main-server\src\tests\search-knowledge.e2e.spec.ts
+====================================================================================================
+
+/**
+ * Search + Knowledge 真联�?E2E 测试
+ *
+ * 所属模块：
+ * * main-server/tests
+ *
+ * 文件作用�? * * 验证 ingestion 完整流程后，search.query 能检索已发布知识
+ *
+ * 主要功能�? * * ingestion pipeline
+ * * search.query
+ * * retrieval log 落库
+ *
+ * 依赖�? * * buildMainServer
+ * * persistence-test.utils
+ * * knowledge-test.utils
+ *
+ * 注意事项�? * * 依赖真实数据库环�? */
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { buildMainServer } from "../app";
+import { hasDatabaseUrl, withPrisma } from "./persistence-test.utils";
+import { createPublishedKnowledge } from "./knowledge-test.utils";
+
+test("search + knowledge e2e should return published knowledge hits", async (t) => {
+  if (!hasDatabaseUrl()) {
+    t.skip("DATABASE_URL is not configured");
+    return;
+  }
+  const { app } = buildMainServer();
+  const tenantId = `tenant-${Date.now()}`;
+  const rawText = "search e2e knowledge text hello runtime";
+  try {
+    const { sourceId } = await createPublishedKnowledge(app, rawText, tenantId);
+
+    const searchRes = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "hello runtime",
+        filters: { tenant_id: tenantId },
+        topK: 5,
+        mode: "keyword",
+        debug: true,
+      },
+    });
+    assert.equal(searchRes.statusCode, 200);
+    const searchBody = searchRes.json() as { items?: Array<{ id: string }> };
+    assert.ok((searchBody.items?.length ?? 0) >= 1);
+
+    await withPrisma(async (prisma) => {
+      const source = await prisma.knowledgeSource.findUnique({
+        where: { id: sourceId },
+      });
+      assert.equal(source?.status, "published");
+      const logs = await prisma.retrievalLog.findMany({
+        where: { space: "knowledge" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      });
+      assert.ok(logs.length >= 1);
+      const latest = logs[0];
+      assert.equal(latest.mode, "keyword");
+      assert.ok(latest.keywordHitCount >= 0);
+      assert.ok(latest.vectorHitCount >= 0);
+      assert.ok(latest.mergedHitCount >= 0);
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+
+
+
+====================================================================================================
+FILE: round-05 01_task.txt
+PATH: D:\health-manager\ai-server-link\audit\round-05-productization\01_task.txt
+====================================================================================================
+
+Phase 5: from tests-green to product-grade retrieval quality.
+
+Goals:
+1) Remove temporary hacks/fallbacks used only for passing tests.
+2) Make vector search truly work end-to-end.
+3) Implement real hybrid ranking (explicit fusion algorithm).
+4) Strengthen tests for vector/keyword/hybrid/tenant/published.
+
+Constraints:
+- No architecture redesign; no business semantics change.
+- No new mock behavior to fake success.
+- No deleting tests.
+
+
+
+
+====================================================================================================
+FILE: round-05 02_codex_reply.txt
+PATH: D:\health-manager\ai-server-link\audit\round-05-productization\02_codex_reply.txt
+====================================================================================================
+
+Summary: Audited end-to-end vector search, removed test-only fallback in vector search adapter, replaced JSON vector-store hack with LanceDB implementation (tenantId flat field, client tenant filtering, overfetch, small-dataset scan+cosine fallback), and upgraded hybrid ranking to Reciprocal Rank Fusion. Updated hybrid/internal-tools tests to assert real keyword+vector contributions. Tests could not be executed here because pnpm is not available in this environment.
+
+
+
+
+====================================================================================================
+FILE: round-05 03_tree.txt
+PATH: D:\health-manager\ai-server-link\audit\round-05-productization\03_tree.txt
+====================================================================================================
+
+apps/main-server/src/modules/ingestion/services/
+  embedding-provider.ts
+  vector-index.writer.ts
+apps/main-server/src/modules/search/services/
+  vector-search.adapter.ts
+apps/main-server/src/tests/
+  search-hybrid.e2e.spec.ts
+  knowledge-test.utils.ts
+apps/main-server/src/
+  internal-tools.test.ts
+packages/vector-store-core/src/
+  lancedb-vector-store.ts
+  vector-store-types.ts
+packages/search-core/src/
+  search-service.ts
+  hybrid-merge.ts
+  hybrid-merge.test.ts
+
+
+
+
+====================================================================================================
+FILE: round-05 04_key_files.txt
+PATH: D:\health-manager\ai-server-link\audit\round-05-productization\04_key_files.txt
+====================================================================================================
+
+Key files audited (status):
+- apps/main-server/src/modules/ingestion/services/embedding-provider.ts (audited, unchanged)
+- apps/main-server/src/modules/ingestion/services/vector-index.writer.ts (audited, unchanged)
+- packages/vector-store-core/src/lancedb-vector-store.ts (modified: LanceDB implementation + small-dataset fallback)
+- apps/main-server/src/modules/search/services/vector-search.adapter.ts (modified earlier: removed keyword fallback)
+- packages/search-core/src/search-service.ts (audited, unchanged)
+- packages/search-core/src/hybrid-merge.ts (modified earlier: RRF fusion)
+- packages/search-core/src/hybrid-merge.test.ts (modified earlier: expectations updated)
+- apps/main-server/src/tests/search-hybrid.e2e.spec.ts (modified: real vector/keyword/hybrid assertions)
+- apps/main-server/src/internal-tools.test.ts (modified: debug keyword/vector counts)
+- apps/main-server/src/tests/knowledge-test.utils.ts (modified earlier: removed temporary logs)
+
+
+
+
+====================================================================================================
+FILE: round-05 05_commands_output.txt
+PATH: D:\health-manager\ai-server-link\audit\round-05-productization\05_commands_output.txt
+====================================================================================================
+
+Commands executed (local environment):
+1) pnpm --filter main-server test
+   Result: failed (pnpm not recognized in this environment).
+2) pnpm -r test
+   Result: failed (pnpm not recognized in this environment).
+
+
+
+
+====================================================================================================
+FILE: round-05 07_risks.txt
+PATH: D:\health-manager\ai-server-link\audit\round-05-productization\07_risks.txt
+====================================================================================================
+
+Risks / open items:
+- DeterministicEmbeddingProvider is test-friendly but not production-grade semantic embeddings.
+- LanceDB small-dataset fallback uses full scan + cosine (safe but O(n) and not suitable for large datasets).
+- Vector score mapping from LanceDB (_score/_distance) is heuristic; consider explicit similarity normalization.
+- No production reranker; hybrid fusion is stable but not optimized for quality yet.
+- Retrieval evaluation framework (golden queries/metrics) is still missing.
+
+
+
+
+====================================================================================================
+FILE: round-05 08_notes.txt
+PATH: D:\health-manager\ai-server-link\audit\round-05-productization\08_notes.txt
+====================================================================================================
+
+Notes:
+- Removed keyword fallback in vector search adapter to prevent "fake" vector hits.
+- Kept client-side tenant filtering and overfetch = max(topK*20, 50); no server-side where.
+- Replaced JSON fallback vector-store with LanceDB implementation using flat tenantId.
+- Added small-dataset fallback (rowCount < 20) using scan + cosine to avoid LanceDB panic.
+
+
+

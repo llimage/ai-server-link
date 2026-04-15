@@ -1,0 +1,12 @@
+Phase 5: from tests-green to product-grade retrieval quality.
+
+Goals:
+1) Remove temporary hacks/fallbacks used only for passing tests.
+2) Make vector search truly work end-to-end.
+3) Implement real hybrid ranking (explicit fusion algorithm).
+4) Strengthen tests for vector/keyword/hybrid/tenant/published.
+
+Constraints:
+- No architecture redesign; no business semantics change.
+- No new mock behavior to fake success.
+- No deleting tests.

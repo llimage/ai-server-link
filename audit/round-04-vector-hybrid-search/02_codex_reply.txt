@@ -1,0 +1,94 @@
+﻿本轮已完成内容：
+1) 引入 embedding-core（确定性 embedding provider）
+2) 引入 vector-store-core（LanceDB 适配器）
+3) ingestion index 阶段写入向量库（VectorIndexWriter）
+4) search.query 新增向量检索适配（LanceDbVectorSearchAdapter）
+5) retrieval log 扩展命中统计字段（keyword/vector/merged）
+6) 新增 hybrid/vector 相关 E2E 测试与 provider/向量库单测
+7) 补充向量检索运行时文档
+
+修改/新增文件：
+- infrastructure/prisma/schema.prisma
+- apps/main-server/src/app.ts
+- apps/main-server/src/config/vector-store.config.ts
+- apps/main-server/src/repositories/vector-index.repository.ts
+- apps/main-server/src/repositories/knowledge.repository.ts
+- apps/main-server/src/modules/ingestion/services/embedding-provider.ts
+- apps/main-server/src/modules/ingestion/services/vector-index.writer.ts
+- apps/main-server/src/modules/search/services/vector-search.adapter.ts
+- apps/main-server/src/modules/search/services/retrieval-log.sink.ts
+- apps/main-server/src/tests/search-hybrid.e2e.spec.ts
+- apps/main-server/src/tests/search-knowledge.e2e.spec.ts
+- docs/architecture/vector-retrieval-runtime.md
+- packages/embedding-core/*
+- packages/vector-store-core/*
+
+已执行验证：
+- corepack pnpm install
+- corepack pnpm prisma:generate
+- corepack pnpm prisma:migrate
+- corepack pnpm --filter main-server test
+- corepack pnpm -r test
+
+当前阻塞：
+- prisma:migrate 与 tests 仍触发 spawn EPERM（环境权限问题），导致迁移与测试无法完成
+
+风险与遗留：
+- retrieval_logs 新字段 migration 未执行成功
+- hybrid/vector 检索相关测试未能实际运行
+
+下一步建议：
+1) 先解决 spawn EPERM（环境/权限）并重新执行 prisma:migrate
+2) 重新执行 main-server 与 workspace tests
+3) 测试通过后补充 LanceDB 命中与 retrieval log 校验
+
+补充说明：
+- corepack pnpm install 失败（EPERM unlink 临时文件）
+- corepack pnpm prisma:migrate 失败（schema-engine spawn EPERM）
+
+补充更新：
+- embedding-core/vector-store-core 选择方案B（exports 指向 src），避免 dist 缺失导致加载失败
+- package.json 已调整 main/types/exports 指向 src/index.ts
+
+补充更新（Round-04.2）：
+- 修复 vector-store-core TS7006：row 显式 any
+- 统一 test 脚本为 tsx --test src（消除 Windows glob 问题）
+- workspace root 校验未完成，corepack 缺失导致 pnpm root -w 无法执行
+- build/test 仍被 corepack 缺失阻塞
+
+补充更新（direct pnpm 阶段）：
+- 尝试 pnpm root -w：pnpm 不存在（CommandNotFoundException）
+- 尝试 npm.cmd -v：npm 模块缺失（npm-cli.js MODULE_NOT_FOUND）
+- 需要用户提供可用 pnpm 路径或安装 pnpm
+补充更新（Round-04.5）：
+- 已将所有 test 脚本改为显式 glob：tsx --test "src/**/*.test.ts" "src/**/*.spec.ts"
+- 已执行 Get-ChildItem -Recurse -Include *.test.ts,*.spec.ts（输出已追加至 05_commands_output.txt）
+- 直接 pnpm 执行失败（CommandNotFoundException），无法进入测试
+补充更新（Round-04.7）：
+- 修复 LanceDB where/delete 字段名大小写问题："tenantId" / "chunkId"
+- 请重新执行 pnpm --filter vector-store-core test 与 pnpm -r test
+补充更新（Round-04.8）：
+- LanceDB 写入与查询向量统一转换为 Float32Array
+- 请重新执行 pnpm --filter vector-store-core test 与 pnpm -r test
+补充更新（Round-04.9）：
+- LanceDB 向量写入/建表/查询统一使用 number[]（Array.from）
+- 请重新执行 pnpm --filter vector-store-core test 与 pnpm -r test
+补充更新（Round-04.10）：
+- LanceDB 查询结果字段增加小写兼容（tenantid/chunkid/documentid/sourceid）
+- 请重新执行 pnpm --filter vector-store-core test 与 pnpm -r test
+补充更新（Round-04.11）：
+- tenantId 映射增加 metadata 兜底，空字段时不强制过滤
+- 请重新执行 pnpm --filter vector-store-core test 与 pnpm -r test
+补充更新（Round-04.13）：
+- .env 已更新为 ai_health_manager，并在 main-server app.ts 引入 dotenv/config
+- 尝试 pnpm prisma:generate / prisma:migrate / main-server test / pnpm -r test，但当前环境 pnpm 不在 PATH（CommandNotFoundException）
+
+[Round-04.5] 已将所有包的 test 脚本统一为 tsx --test src，以避免 Windows 下 glob 解析问题。随后执行 main-server 和 workspace 测试；若 pnpm 未在当前 shell PATH 中，将在命令输出中原样记录错误。
+
+[Round-04.5b] 为彻底修复 Windows 下 tsx 测试发现问题，新增 scripts/run-tests.mjs 并将 apps/* 与 packages/* 的 test 脚本统一改为 node ../../scripts/run-tests.mjs src。
+
+[Round-04.5c] run-tests.mjs 增加对 spawnSync error 的输出，避免 tsx 未找到时静默失败，便于定位 main-server/embedding-core/vector-store-core 的失败原因。
+
+[Round-04.5d] 修复测试运行器：显式定位 repo 根目录的 node_modules/.bin/tsx(.cmd) 执行测试，解决 Windows 下 spawn tsx ENOENT。
+
+[Round-04.5e] 修复 ingestion 落库：仅在 embeddings 未生成时写入 chunks，避免 index 阶段重建 chunk 导致 vector 索引与数据库 chunkId 不一致。

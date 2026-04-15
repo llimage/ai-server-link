@@ -1,0 +1,7 @@
+原因：
+tsx CLI 在 Windows 下对 src 目录与 glob 解析不稳定，导致把 src 当入口并尝试加载 src/index.json，
+或无法展开 glob 从而测试未被发现。
+
+修复：
+新增自定义测试运行器 scripts/run-tests.mjs，通过递归扫描 *.test.ts / *.spec.ts
+并显式传给 tsx --test，避免 CLI 解析问题。

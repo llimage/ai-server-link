@@ -1,0 +1,14 @@
+{
+  "name": "runtime-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs src"
+  },
+  "dependencies": {
+    "protocol": "workspace:*"
+  }
+}

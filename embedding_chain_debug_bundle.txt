@@ -1,0 +1,1297 @@
+﻿
+===== EMBEDDING CHAIN DEBUG BUNDLE =====
+GeneratedAt: 2026-04-14 15:50:23
+PWD: D:\health-manager\ai-server-link
+Node: v24.14.1
+Pnpm: 9.15.0
+
+===== FILE: packages\embedding-core\src\index.ts =====
+/**
+ * Embedding Core - 缁熶竴瀵煎嚭
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * embedding-core
+ *
+ * 鏂囦欢浣滅敤锛? * * 瀵煎嚭 embedding provider 鐩稿叧绫诲瀷涓庡疄鐜? *
+ * 涓昏鍔熻兘锛? * * export EmbeddingProvider / DeterministicEmbeddingProvider
+ *
+ * 渚濊禆锛? * * embedding-provider
+ * * deterministic-embedding-provider
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 浠呭鍑鸿兘鍔涳紝涓嶅寘鍚笟鍔￠€昏緫
+ */
+
+export type { EmbeddingProvider, EmbeddingRequest, EmbeddingResult } from "./embedding-provider";
+export { DeterministicEmbeddingProvider } from "./deterministic-embedding-provider";
+
+
+===== FILE: packages\embedding-core\src\deterministic-embedding-provider.ts =====
+/**
+ * Embedding Core - 纭畾鎬у悜閲忔彁渚涘櫒
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * embedding-core
+ *
+ * 鏂囦欢浣滅敤锛? * * 鎻愪緵鏈湴鍙繍琛屻€佸彲澶嶇幇鐨?embedding 瀹炵幇
+ * * 鐢ㄤ簬娴嬭瘯涓庨潪鐪熷疄 provider 闃舵鐨勫悜閲忕敓鎴? *
+ * 涓昏鍔熻兘锛? * * DeterministicEmbeddingProvider
+ *
+ * 渚濊禆锛? * * embedding-provider
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 璇ュ疄鐜颁笉璋冪敤鐪熷疄妯″瀷锛屽彧鐢ㄤ簬绋冲畾娴嬭瘯
+ */
+
+import type { EmbeddingProvider, EmbeddingRequest, EmbeddingResult } from "./embedding-provider";
+
+/**
+ * 纭畾鎬у悜閲忔彁渚涘櫒
+ */
+export class DeterministicEmbeddingProvider implements EmbeddingProvider {
+  /**
+   * 鐢熸垚鍚戦噺
+   *
+   * 鍔熻兘璇存槑锛?   * * 浣跨敤绋冲畾鍝堝笇鐢熸垚鍥哄畾缁村害鍚戦噺
+   *
+   * @param request embedding 璇锋眰
+   * @returns embedding 缁撴灉
+   */
+  async embed(request: EmbeddingRequest): Promise<EmbeddingResult> {
+    const vectors = request.texts.map((text) =>
+      buildStableVector(text, request.dimension),
+    );
+    return {
+      vectors,
+      dimension: request.dimension,
+      providerName: request.providerName ?? "deterministic",
+    };
+  }
+}
+
+/**
+ * 鏋勯€犵ǔ瀹氬悜閲? *
+ * 鍔熻兘璇存槑锛? * * 浣跨敤绠€鍗曞搱甯岀敓鎴愬浐瀹氶暱搴﹀悜閲忥紝淇濊瘉鍚岃緭鍏ュ彲澶嶇幇
+ *
+ * @param text 杈撳叆鏂囨湰
+ * @param dimension 鍚戦噺缁村害
+ * @returns 鍚戦噺
+ */
+function buildStableVector(text: string, dimension: number): number[] {
+  const seed = simpleHash(text);
+  const vector: number[] = [];
+  for (let index = 0; index < dimension; index += 1) {
+    const value = ((seed + (index + 1) * 1315423911) >>> 0) % 1000;
+    vector.push(value / 1000);
+  }
+  return vector;
+}
+
+/**
+ * 绠€鍗曞搱甯? *
+ * 鍔熻兘璇存槑锛? * * 涓哄悜閲忕敓鎴愭彁渚涚ǔ瀹氱瀛? *
+ * @param text 杈撳叆鏂囨湰
+ * @returns hash 鍊? */
+function simpleHash(text: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+
+===== FILE: apps\main-server\src\modules\ingestion\services\embedding-provider.ts =====
+/**
+ * Ingestion 鍚戦噺鎻愪緵鍣ㄩ€傞厤
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server/modules/ingestion
+ *
+ * 鏂囦欢浣滅敤锛? * * 灏?embedding-core provider 閫傞厤涓?ingestion-core Embedder
+ * * 缁熶竴鍚戦噺缁村害涓庣ǔ瀹氭€х瓥鐣? *
+ * 涓昏鍔熻兘锛? * * DeterministicEmbedder
+ *
+ * 渚濊禆锛? * * ingestion-core Embedder
+ * * embedding-core DeterministicEmbeddingProvider
+ * * search-core profile
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 褰撳墠涓烘湰鍦板彲杩愯瀹炵幇锛屽悗缁彲鏇挎崲涓虹湡瀹?provider
+ */
+
+import { DeterministicEmbeddingProvider } from "embedding-core";
+import type { Embedder } from "ingestion-core";
+import { getDefaultSearchProfile } from "search-core";
+
+/**
+ * 纭畾鎬?Embedder
+ */
+export class DeterministicEmbedder implements Embedder {
+  private readonly provider = new DeterministicEmbeddingProvider();
+
+  /**
+   * 鐢熸垚鍚戦噺
+   *
+   * 鍔熻兘璇存槑锛?   * * 浣跨敤 deterministic provider 鐢熸垚绋冲畾鍚戦噺
+   *
+   * @param chunks 鏂囨湰鍧?   * @param profileId profileId锛堥鐣欙級
+   * @returns 鍚戦噺鍒楄〃
+   */
+  async embed(chunks: string[], profileId?: string): Promise<number[][]> {
+    void profileId;
+    const dimension = getDefaultSearchProfile().embedding.dimension;
+    const result = await this.provider.embed({
+      texts: chunks,
+      dimension,
+      providerName: "deterministic",
+    });
+    return result.vectors;
+  }
+}
+
+
+===== FILE: apps\main-server\src\modules\ingestion\services\vector-index.writer.ts =====
+/**
+ * Ingestion 鍚戦噺绱㈠紩鍐欏叆鍣? *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server/modules/ingestion
+ *
+ * 鏂囦欢浣滅敤锛? * * 灏?ingestion-core index 闃舵鍐欏叆鍚戦噺搴? * * 璐熻矗浠庢暟鎹簱璇诲彇 chunk 缁撴瀯骞跺啓鍏?LanceDB
+ *
+ * 涓昏鍔熻兘锛? * * VectorIndexWriter
+ *
+ * 渚濊禆锛? * * ingestion-core Indexer
+ * * KnowledgeRepository
+ * * VectorIndexRepository
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 閫氳繃 chunkIndex 瀵归綈 embeddings
+ * * 浠呭啓鍏ワ紝涓嶅仛涓氬姟杩囨护
+ */
+
+import type { Indexer } from "ingestion-core";
+import type { VectorRecord } from "vector-store-core";
+import { KnowledgeRepository } from "../../../repositories/knowledge.repository";
+import { VectorIndexRepository } from "../../../repositories/vector-index.repository";
+
+/**
+ * 鍚戦噺绱㈠紩鍐欏叆鍣? */
+export class VectorIndexWriter implements Indexer {
+  constructor(
+    private readonly knowledgeRepository: KnowledgeRepository,
+    private readonly vectorRepository: VectorIndexRepository,
+  ) {}
+
+  /**
+   * 鍐欏叆鍚戦噺绱㈠紩
+   *
+   * 鍔熻兘璇存槑锛?   * * 鏍规嵁 sourceId 璇诲彇 chunk 涓?document 淇℃伅
+   * * 瀵归綈 embeddings 骞跺啓鍏ュ悜閲忓簱
+   *
+   * @param params 绱㈠紩鍙傛暟
+   * @returns void
+   */
+  async index(params: {
+    sourceId: string;
+    chunks: string[];
+    embeddings: number[][];
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    const source = await this.knowledgeRepository.getSourceById(params.sourceId);
+    if (!source) {
+      throw new Error("Source not found for vector index");
+    }
+    const document = await this.knowledgeRepository.getDocumentBySourceId(params.sourceId);
+    if (!document) {
+      throw new Error("Document not found for vector index");
+    }
+    const chunks = await this.knowledgeRepository.listChunksByDocumentId(document.id);
+    if (!chunks.length) {
+      throw new Error("No chunks found for vector index");
+    }
+    const length = Math.min(chunks.length, params.embeddings.length);
+    const records: VectorRecord[] = [];
+    for (let index = 0; index < length; index += 1) {
+      const chunk = chunks[index];
+      const embedding = params.embeddings[index];
+      records.push({
+        chunkId: chunk.id,
+        documentId: document.id,
+        sourceId: source.id,
+        tenantId: source.tenantId,
+        text: chunk.chunkText,
+        embedding,
+        metadata: (chunk.metadataJson as Record<string, unknown> | undefined) ?? params.metadata,
+      });
+    }
+    await this.vectorRepository.upsert(records);
+  }
+}
+
+
+===== FILE: packages\vector-store-core\src\lancedb-vector-store.ts =====
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+export interface LanceDbConfig {
+  uri?: string;
+  tableName?: string;
+  vectorColumn?: string;
+}
+
+type StoredRow = {
+  id: string;
+  chunkId: string;
+  tenantId?: string;
+  text: string;
+  vector: number[];
+  metadata?: Record<string, unknown>;
+  sourceId?: string;
+  documentId?: string;
+};
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length === 0 || b.length === 0 || a.length !== b.length) {
+    return -1;
+  }
+
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i += 1) {
+    const av = a[i] ?? 0;
+    const bv = b[i] ?? 0;
+    dot += av * bv;
+    normA += av * av;
+    normB += bv * bv;
+  }
+
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  if (denom === 0) return -1;
+  return dot / denom;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function asVector(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((n) => Number(n)).filter((n) => Number.isFinite(n));
+}
+function resolveRowTenantId(row: { tenantId?: string; metadata?: Record<string, unknown> }): string | undefined {
+  return (
+    asString(row.tenantId) ??
+    asString(row.metadata?.tenantId) ??
+    asString(row.metadata?.tenant_id)
+  );
+}
+
+export class LanceDbVectorStore {
+  private readonly uri: string;
+  private readonly tableName: string;
+  private readonly vectorColumn: string;
+  private filePath: string | null = null;
+
+  constructor(config: LanceDbConfig = {}) {
+    this.uri = config.uri ?? "./.lancedb";
+    this.tableName = config.tableName ?? "vectors";
+    this.vectorColumn = config.vectorColumn ?? "vector";
+    void this.vectorColumn;
+  }
+
+  private async ensureReady(): Promise<void> {
+    if (this.filePath) return;
+
+    const rootDir = path.resolve(this.uri);
+    await mkdir(rootDir, { recursive: true });
+    this.filePath = path.join(rootDir, `${this.tableName}.json`);
+
+    try {
+      await readFile(this.filePath, "utf8");
+    } catch {
+      await writeFile(this.filePath, "[]", "utf8");
+    }
+  }
+
+  private async readRows(): Promise<StoredRow[]> {
+    await this.ensureReady();
+    const raw = await readFile(this.filePath!, "utf8");
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  }
+
+  private async writeRows(rows: StoredRow[]): Promise<void> {
+    await this.ensureReady();
+    await writeFile(this.filePath!, JSON.stringify(rows, null, 2), "utf8");
+  }
+
+  async upsert(records: any[]): Promise<void> {
+    await this.ensureReady();
+    if (!records?.length) return;
+
+    const existing = await this.readRows();
+    const byId = new Map<string, StoredRow>();
+
+    for (const row of existing) {
+      byId.set(row.id, row);
+    }
+
+    for (const r of records) {
+      const metadata = (r?.metadata ?? {}) as Record<string, unknown>;
+
+      const id = String(
+        r?.id ??
+        r?.chunkId ??
+        metadata.chunkId ??
+        metadata.id
+      );
+
+      const chunkId = String(
+        r?.chunkId ??
+        metadata.chunkId ??
+        r?.id ??
+        metadata.id
+      );
+
+      const tenantId =
+  asString(r?.tenantId) ??
+  asString(r?.tenant_id) ??
+  asString(metadata.tenantId) ??
+  asString(metadata.tenant_id) ??
+  "tenant-default";
+
+      const text =
+        asString(r?.text) ??
+        asString(r?.content) ??
+        asString(metadata.text) ??
+        "";
+
+      const vector =
+        asVector(r?.vector).length > 0
+          ? asVector(r?.vector)
+          : asVector(r?.values);
+
+      byId.set(id, {
+        id,
+        chunkId,
+        tenantId,
+        text,
+        vector,
+        metadata,
+        sourceId: asString(r?.sourceId) ?? asString(metadata.sourceId) ?? "",
+        documentId: asString(r?.documentId) ?? asString(metadata.documentId) ?? "",
+      });
+    }
+
+    await this.writeRows(Array.from(byId.values()));
+  }
+
+  async query(query: any): Promise<any[]> {
+    await this.ensureReady();
+
+    const { vector, topK = 5, tenantId } = query ?? {};
+    const rows = await this.readRows();
+
+    const filtered = rows.filter((r) => {
+      const rowTenantId = resolveRowTenantId(r);
+      if (tenantId && rowTenantId !== tenantId) return false;
+      return Array.isArray(r.vector) && r.vector.length > 0;
+    });
+
+    const scored = filtered.map((r) => ({
+      row: r,
+      score: cosineSimilarity(vector, r.vector),
+    }));
+
+    const ranked = scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topK);
+
+    console.log("[vector-store][debug]", {
+      tenantId,
+      totalRows: rows.length,
+      filteredRows: filtered.length,
+      queryVectorLength: Array.isArray(vector) ? vector.length : -1,
+      topScores: ranked.map((x) => ({
+        chunkId: x.row.chunkId,
+        tenantId: resolveRowTenantId(x.row),
+        score: x.score,
+        textPreview: x.row.text?.slice?.(0, 60),
+      })),
+    });
+
+    return ranked.map(({ row, score }) => ({
+      chunkId: row.chunkId,
+      score,
+      text: row.text,
+      metadata: row.metadata ?? {},
+      sourceId: row.sourceId,
+      documentId: row.documentId,
+    }));
+  }
+}
+
+
+
+
+
+===== FILE: apps\main-server\src\modules\search\services\vector-search.adapter.ts =====
+import { DeterministicEmbeddingProvider } from "embedding-core";
+import type { SearchProfile } from "search-core";
+import type { NormalizedFilters, NormalizedQuery, VectorHit, VectorSearchAdapter } from "search-core";
+import { KnowledgeRepository } from "../../../repositories/knowledge.repository";
+import { VectorIndexRepository } from "../../../repositories/vector-index.repository";
+
+export class LanceDbVectorSearchAdapter implements VectorSearchAdapter {
+  private readonly provider = new DeterministicEmbeddingProvider();
+
+  constructor(
+    private readonly knowledgeRepository: KnowledgeRepository,
+    private readonly vectorRepository: VectorIndexRepository,
+  ) {}
+
+  async search(params: {
+    space: string;
+    query: NormalizedQuery;
+    filters: NormalizedFilters;
+    topK: number;
+    profile: SearchProfile;
+  }): Promise<VectorHit[]> {
+    const dimension = params.profile.embedding.dimension;
+
+    const embedding = await this.provider.embed({
+      texts: [params.query.normalized],
+      dimension,
+      providerName: "deterministic",
+    });
+
+    const tenantId = resolveTenantId(params.filters.values);
+
+    let rawHits: any[] = [];
+
+    try {
+      rawHits = await this.vectorRepository.query({
+        vector: embedding.vectors[0],
+        topK: params.topK,
+        tenantId,
+      });
+    } catch (err: any) {
+      console.warn("[vector-search] fallback triggered:", err?.message || err);
+      return [];
+    }
+
+    if (!rawHits.length) {
+      console.log("[vector-search][debug] empty rawHits", {
+        tenantId,
+        query: params.query.normalized,
+        dimension,
+        embeddingSample: embedding.vectors[0]?.slice?.(0, 8),
+      });
+      return [];
+    }
+
+    const publishedIds = await this.knowledgeRepository.getPublishedChunkIds(
+      rawHits.map((hit) => hit.chunkId),
+    );
+
+    const publishedSet = new Set(publishedIds);
+
+    return rawHits
+      .filter((hit) => publishedSet.has(hit.chunkId))
+      .map((hit) => ({
+        id: hit.chunkId,
+        score: hit.score,
+        text: hit.text,
+        metadata: {
+          ...hit.metadata,
+          sourceId: hit.sourceId,
+          documentId: hit.documentId,
+          chunkId: hit.chunkId,
+        },
+      }));
+  }
+}
+
+function resolveTenantId(filters: Record<string, unknown>): string | undefined {
+  if (typeof filters.tenant_id === "string") return filters.tenant_id;
+  if (typeof filters.tenantId === "string") return filters.tenantId;
+  return undefined;
+}
+
+
+
+
+===== FILE: apps\main-server\src\tests\search-hybrid.e2e.spec.ts =====
+/**
+ * Search Hybrid E2E 娴嬭瘯
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server/tests
+ *
+ * 鏂囦欢浣滅敤锛? * * 楠岃瘉 keyword/vector/hybrid 妫€绱㈠潎鍙繑鍥炲凡鍙戝竷鐭ヨ瘑
+ * * 楠岃瘉 retrieval log 鍐欏叆鍛戒腑缁熻
+ *
+ * 涓昏鍔熻兘锛? * * ingestion pipeline
+ * * search.query (keyword/vector/hybrid)
+ *
+ * 渚濊禆锛? * * buildMainServer
+ * * knowledge-test.utils
+ * * persistence-test.utils
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 渚濊禆鐪熷疄鏁版嵁搴撲笌 LanceDB 鐜
+ */
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { buildMainServer } from "../app";
+import { hasDatabaseUrl, withPrisma } from "./persistence-test.utils";
+import { createPublishedKnowledge } from "./knowledge-test.utils";
+
+test("search hybrid modes should return published knowledge hits", async (t) => {
+  if (!hasDatabaseUrl()) {
+    t.skip("DATABASE_URL is not configured");
+    return;
+  }
+  const { app } = buildMainServer();
+  const tenantId = `tenant-${Date.now()}`;
+  const rawText = "hybrid search knowledge text vector keyword";
+  try {
+    await createPublishedKnowledge(app, rawText, tenantId);
+
+    const keywordRes = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "keyword",
+        filters: { tenant_id: tenantId },
+        topK: 5,
+        mode: "keyword",
+      },
+    });
+    assert.equal(keywordRes.statusCode, 200);
+    const keywordBody = keywordRes.json() as { items?: unknown[] };
+    assert.ok((keywordBody.items?.length ?? 0) >= 1);
+
+    const vectorRes = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "hello",
+        filters: { tenant_id: tenantId },
+        topK: 5,
+        mode: "vector",
+      },
+    });
+    assert.equal(vectorRes.statusCode, 200);
+    const vectorBody = vectorRes.json() as { items?: unknown[] };
+    assert.ok((vectorBody.items?.length ?? 0) >= 1);
+
+    const hybridRes = await app.inject({
+      method: "POST",
+      url: "/internal/search/query",
+      payload: {
+        space: "knowledge",
+        query: "hybrid",
+        filters: { tenant_id: tenantId },
+        topK: 5,
+        mode: "hybrid",
+      },
+    });
+    assert.equal(hybridRes.statusCode, 200);
+    const hybridBody = hybridRes.json() as { items?: unknown[] };
+    assert.ok((hybridBody.items?.length ?? 0) >= 1);
+
+    await withPrisma(async (prisma) => {
+      const logs = await prisma.retrievalLog.findMany({
+        where: { space: "knowledge" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      });
+      assert.ok(logs.length >= 1);
+      const latest = logs[0];
+      assert.ok(latest.keywordHitCount >= 0);
+      assert.ok(latest.vectorHitCount >= 0);
+      assert.ok(latest.mergedHitCount >= 0);
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+
+
+
+===== FILE: apps\main-server\src\internal-tools.test.ts =====
+/**
+ * Tool Core 鍐呴儴宸ュ叿璺敱娴嬭瘯
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server
+ *
+ * 鏂囦欢浣滅敤锛? * * 楠岃瘉 search.query 宸ュ叿娉ㄥ唽涓庢墽琛屾帴鍙ｅ彲鐢? *
+ * 涓昏鍔熻兘锛? * * GET /internal/tools/schema 鍖呭惈 search.query
+ * * POST /internal/tools/execute 鍙墽琛?search.query
+ *
+ * 渚濊禆锛? * * node:test
+ * * app 鏋勫缓鍑芥暟
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 閫氳繃 app.inject 鎵ц锛屼笉渚濊禆澶栭儴缃戠粶
+ */
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { buildMainServer } from "./app";
+import { hasDatabaseUrl } from "./tests/persistence-test.utils";
+import { createPublishedKnowledge } from "./tests/knowledge-test.utils";
+
+/**
+ * 楠岃瘉宸ュ叿 schema 涓庢墽琛? */
+test("internal tools routes should expose and execute search/meta/memory/records/plans tools", async (t) => {
+  if (!hasDatabaseUrl()) {
+    t.skip("DATABASE_URL is not configured");
+    return;
+  }
+  const userId = `u-tools-${Date.now()}`;
+  const recordSpace = `general-${Date.now()}`;
+  const planType = `routine-${Date.now()}`;
+  const tenantId = `tenant-${Date.now()}`;
+  const { app } = buildMainServer();
+  try {
+    const schemaRes = await app.inject({
+      method: "GET",
+      url: "/internal/tools/schema",
+    });
+    assert.equal(schemaRes.statusCode, 200);
+    const schemaBody = schemaRes.json() as {
+      tools: Array<{ name: string }>;
+    };
+    const required = [
+      "search.query",
+      "user.meta.write",
+      "user.meta.query",
+      "memory.write",
+      "memory.search",
+      "memory.summarize",
+      "records.write",
+      "records.query",
+      "records.update",
+      "plans.write",
+      "plans.query",
+      "plans.activate",
+      "plans.pause",
+      "plans.expand",
+    ];
+    for (const name of required) {
+      assert.ok(schemaBody.tools.some((item) => item.name === name));
+    }
+
+    await createPublishedKnowledge(
+      app,
+      "hello knowledge for search tool",
+      tenantId,
+    );
+
+    const executeRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "search.query",
+        args: {
+          space: "knowledge",
+          query: "hello",
+          filters: { tenant_id: tenantId },
+          topK: 5,
+          mode: "hybrid",
+          debug: true,
+        },
+      },
+    });
+    assert.equal(executeRes.statusCode, 200);
+    const executeBody = executeRes.json() as {
+      ok: boolean;
+      result?: { items?: unknown[] };
+    };
+    assert.equal(executeBody.ok, true);
+    assert.ok((executeBody.result?.items?.length ?? 0) >= 1);
+
+    const metaWriteRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "user.meta.write",
+        args: {
+          userId,
+          items: [{ key: "wakeup_time", value: "07:30", tags: ["habit"] }],
+        },
+      },
+    });
+    assert.equal(metaWriteRes.statusCode, 200);
+    assert.equal((metaWriteRes.json() as { ok: boolean }).ok, true);
+
+    await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "memory.write",
+        args: {
+          userId,
+          content: "I prefer morning exercise",
+          tags: ["habit"],
+        },
+      },
+    });
+    const memorySearchRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "memory.search",
+        args: {
+          userId,
+          query: "morning",
+          topK: 5,
+        },
+      },
+    });
+    assert.equal(memorySearchRes.statusCode, 200);
+    const memorySearchBody = memorySearchRes.json() as {
+      ok: boolean;
+      result?: { items?: unknown[] };
+    };
+    assert.equal(memorySearchBody.ok, true);
+    assert.ok((memorySearchBody.result?.items?.length ?? 0) >= 1);
+
+    const recordWriteRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "records.write",
+        args: {
+          userId,
+          space: recordSpace,
+          type: "note",
+          payload: { mood: "good" },
+        },
+      },
+    });
+    assert.equal(recordWriteRes.statusCode, 200);
+    assert.equal((recordWriteRes.json() as { ok: boolean }).ok, true);
+
+    const planWriteRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "plans.write",
+        args: {
+          userId,
+          space: recordSpace,
+          type: planType,
+          payload: { title: "morning plan" },
+        },
+      },
+    });
+    assert.equal(planWriteRes.statusCode, 200);
+    const planWriteBody = planWriteRes.json() as {
+      ok: boolean;
+      result?: { planId?: string };
+    };
+    assert.equal(planWriteBody.ok, true);
+
+    const planId = (planWriteBody.result as { planId?: string } | undefined)?.planId;
+    assert.ok(planId);
+    const planExpandRes = await app.inject({
+      method: "POST",
+      url: "/internal/tools/execute",
+      payload: {
+        name: "plans.expand",
+        args: {
+          planId,
+          date: "2026-04-13",
+        },
+      },
+    });
+    assert.equal(planExpandRes.statusCode, 200);
+    const planExpandBody = planExpandRes.json() as {
+      ok: boolean;
+      result?: { items?: unknown[] };
+    };
+    assert.equal(planExpandBody.ok, true);
+    assert.ok((planExpandBody.result?.items?.length ?? 0) >= 1);
+  } finally {
+    await app.close();
+  }
+});
+
+
+===== FILE: apps\main-server\src\tests\knowledge-test.utils.ts =====
+/**
+ * Knowledge 娴嬭瘯杈呭姪宸ュ叿
+ *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server/tests
+ *
+ * 鏂囦欢浣滅敤锛? * * 鎻愪緵涓婁紶骞跺彂甯冪煡璇嗙殑娴嬭瘯杈呭姪鍑芥暟
+ *
+ * 涓昏鍔熻兘锛? * * createPublishedKnowledge
+ *
+ * 渚濊禆锛? * * FastifyInstance
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 浠呯敤浜庢祴璇曠幆澧冿紝涓嶅寘鍚笟鍔￠€昏緫
+ */
+
+import type { FastifyInstance } from "fastify";
+
+/**
+ * 鍒涘缓骞跺彂甯冪煡璇? *
+ * 鍔熻兘璇存槑锛? * 璋冪敤 ingestion admin routes 鎵ц瀹屾暣 pipeline
+ *
+ * @param app Fastify 瀹炰緥
+ * @param rawText 鍘熷鏂囨湰
+ * @param tenantId 绉熸埛 ID
+ * @returns sourceId 涓?taskId
+ */
+export async function createPublishedKnowledge(
+  app: FastifyInstance,
+  rawText: string,
+  tenantId: string,
+): Promise<{ sourceId: string; taskId: string }> {
+  const uploadRes = await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/upload",
+    payload: {
+      rawText,
+      metadata: { tenant_id: tenantId },
+    },
+  });
+  if (uploadRes.statusCode !== 200) {
+    throw new Error(`upload failed: ${uploadRes.statusCode}`);
+  }
+  const uploadBody = uploadRes.json() as { sourceId: string; taskId: string };
+  const stagePayload = { sourceId: uploadBody.sourceId, taskId: uploadBody.taskId };
+
+  await app.inject({ method: "POST", url: "/api/admin/ingestion/parse", payload: stagePayload });
+  await app.inject({ method: "POST", url: "/api/admin/ingestion/chunk", payload: stagePayload });
+  await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/embed",
+    payload: { ...stagePayload, params: { profileId: "default" } },
+  });
+  const indexRes = await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/index",
+    payload: stagePayload,
+  });
+  if (indexRes.statusCode !== 200) {
+    console.log("[test][knowledge] index response", indexRes.statusCode, indexRes.body);
+  }
+  const publishRes = await app.inject({
+    method: "POST",
+    url: "/api/admin/ingestion/publish",
+    payload: stagePayload,
+  });
+  if (publishRes.statusCode !== 200) {
+    console.log("[test][knowledge] publish response", publishRes.statusCode, publishRes.body);
+  }
+
+  return uploadBody;
+}
+
+
+===== FILE: apps\main-server\src\app.ts =====
+/**
+ * Runtime Core 涓荤▼搴忓叆鍙? *
+ * 鎵€灞炴ā鍧楋細
+ * * main-server
+ *
+ * 鏂囦欢浣滅敤锛? * * 缁勮 main-server 鎵€鏈夋牳蹇冧緷璧栧苟鍚姩 HTTP + WebSocket 鏈嶅姟
+ * * 鏆撮湶鍐呴儴浜嬩欢鍏ュ彛渚?agent-runtime 鍥炰紶娴佸紡浜嬩欢
+ *
+ * 涓昏鍔熻兘锛? * * buildMainServer
+ * * 娉ㄥ唽 /internal/runtime/events
+ * * 瀹夎 websocket 鏈嶅姟
+ *
+ * 渚濊禆锛? * * fastify
+ * * protocol
+ * * runtime-core
+ * * scheduler-core
+ * * 鏈湴 ws/runtime/gateways 缁勪欢
+ *
+ * 娉ㄦ剰浜嬮」锛? * * 鏈枃浠跺彧璐熻矗瑁呴厤锛屼笉鎵胯浇涓氬姟缁嗚妭
+ */
+
+import "dotenv/config";
+import Fastify, { type FastifyInstance } from "fastify";
+import type { InternalRuntimeEventsRequest } from "protocol";
+import {
+  DefaultTextParser,
+  IngestionService,
+  MockPublisher,
+} from "ingestion-core";
+import {
+  DefaultFallbackPolicy,
+  DefaultRetryPolicy,
+  InMemoryModelCatalog,
+  ModelInvokeService,
+  ModelRouter,
+  MockProviderAdapter,
+} from "model-core";
+import { InMemoryRunStore, InMemorySessionStore } from "runtime-core";
+import {
+  DefaultDispatchPolicy,
+  InMemoryAgentRegistry,
+  InMemoryRunQueue,
+  RunScheduler,
+} from "scheduler-core";
+import {
+  MockRerankAdapter,
+  SearchService,
+} from "search-core";
+import {
+  createMemorySearchTool,
+  createMemorySummarizeTool,
+  createMemoryWriteTool,
+  createPlansActivateTool,
+  createPlansExpandTool,
+  createPlansPauseTool,
+  createPlansQueryTool,
+  createPlansWriteTool,
+  createRecordsQueryTool,
+  createRecordsUpdateTool,
+  createRecordsWriteTool,
+  createSearchQueryTool,
+  createUserMetaQueryTool,
+  createUserMetaWriteTool,
+  type ToolDefinition,
+} from "tool-core";
+import { AgentGateway } from "./gateways/agent-gateway";
+import { IngestionGateway } from "./gateways/ingestion-gateway";
+import { MemoryGateway } from "./gateways/memory-gateway";
+import { ModelGateway } from "./gateways/model-gateway";
+import { RecordsPlansGateway } from "./gateways/records-plans-gateway";
+import { SearchGateway } from "./gateways/search-gateway";
+import { registerIngestionChunkRoute } from "./routes/ingestion-chunk";
+import { registerIngestionEmbedRoute } from "./routes/ingestion-embed";
+import { registerIngestionIndexRoute } from "./routes/ingestion-index";
+import { registerIngestionParseRoute } from "./routes/ingestion-parse";
+import { registerIngestionPublishRoute } from "./routes/ingestion-publish";
+import { registerIngestionUploadRoute } from "./routes/ingestion-upload";
+import { registerInternalMemorySearchRoute } from "./routes/internal-memory-search";
+import { registerInternalMemorySummarizeRoute } from "./routes/internal-memory-summarize";
+import { registerInternalMemoryWriteRoute } from "./routes/internal-memory-write";
+import { registerInternalModelRoutes } from "./routes/internal-model-invoke";
+import { registerInternalPlansActivateRoute } from "./routes/internal-plans-activate";
+import { registerInternalPlansExpandRoute } from "./routes/internal-plans-expand";
+import { registerInternalPlansPauseRoute } from "./routes/internal-plans-pause";
+import { registerInternalPlansQueryRoute } from "./routes/internal-plans-query";
+import { registerInternalPlansWriteRoute } from "./routes/internal-plans-write";
+import { registerInternalRecordsQueryRoute } from "./routes/internal-records-query";
+import { registerInternalRecordsUpdateRoute } from "./routes/internal-records-update";
+import { registerInternalRecordsWriteRoute } from "./routes/internal-records-write";
+import { registerInternalSearchQueryRoute } from "./routes/internal-search-query";
+import { registerInternalToolRoutes } from "./routes/internal-tools";
+import { registerInternalUserMetaQueryRoute } from "./routes/internal-user-meta-query";
+import { registerInternalUserMetaWriteRoute } from "./routes/internal-user-meta-write";
+import { EventRelay } from "./runtime/event-relay";
+import { RunService } from "./runtime/run-service";
+import { SessionManager } from "./runtime/session-manager";
+import { ConnectionManager } from "./ws/connection-manager";
+import { WsMessageHandler } from "./ws/ws-message-handler";
+import { RuntimeWsServer } from "./ws/server";
+import { createPrismaModule } from "./modules/database/prisma.module";
+import { RecordsRepository } from "./repositories/records.repository";
+import { PlansRepository } from "./repositories/plans.repository";
+import { UserMetaRepository } from "./repositories/user-meta.repository";
+import { MemoryRepository } from "./repositories/memory.repository";
+import { RunRepository } from "./repositories/run.repository";
+import { RunEventRepository } from "./repositories/run-event.repository";
+import { ToolCallLogRepository } from "./repositories/tool-call-log.repository";
+import { ModelInvokeLogRepository } from "./repositories/model-invoke-log.repository";
+import { AuditLogRepository } from "./repositories/audit-log.repository";
+import { PersistentRecordsService } from "./modules/records/services/records.service";
+import { PersistentPlansService } from "./modules/plans/services/plans.service";
+import { PersistentUserMetaService } from "./modules/user-meta/services/user-meta.service";
+import { PersistentMemoryService } from "./modules/memory/services/memory.service";
+import { AuditLogService } from "./modules/audit/services/audit-log.service";
+import { RunLogService } from "./modules/runtime/services/run-log.service";
+import { ToolCallLogService } from "./modules/runtime/services/tool-call-log.service";
+import { ModelInvokeLogService } from "./modules/model/services/model-invoke-log.service";
+import { createRedisModule } from "./modules/redis/redis.module";
+import { RuntimeCacheService } from "./modules/runtime/services/runtime-cache.service";
+import { KnowledgeRepository } from "./repositories/knowledge.repository";
+import { IngestionTaskRepository } from "./repositories/ingestion-task.repository";
+import { IngestionLogRepository } from "./repositories/ingestion-log.repository";
+import { RetrievalLogRepository } from "./repositories/retrieval-log.repository";
+import { DatabaseKnowledgeSourceStore } from "./modules/ingestion/services/knowledge-source.store";
+import { DatabaseIngestionTaskStore } from "./modules/ingestion/services/ingestion-task.store";
+import { DatabaseIngestionLogSink } from "./modules/ingestion/services/ingestion-log.sink";
+import { KnowledgeKeywordSearchAdapter } from "./modules/search/services/knowledge-keyword-search.adapter";
+import { DatabaseRetrievalLogSink } from "./modules/search/services/retrieval-log.sink";
+import { DeterministicEmbedder } from "./modules/ingestion/services/embedding-provider";
+import { VectorIndexWriter } from "./modules/ingestion/services/vector-index.writer";
+import { LanceDbVectorSearchAdapter } from "./modules/search/services/vector-search.adapter";
+import { VectorIndexRepository } from "./repositories/vector-index.repository";
+import { LanceDbVectorStore } from "vector-store-core";
+import { getVectorStoreConfig } from "./config/vector-store.config";
+
+/**
+ * 涓绘湇鍔℃瀯寤洪€夐」
+ */
+export interface MainServerOptions {
+  port?: number;
+  host?: string;
+  defaultAgentRuntimeUrl?: string;
+}
+
+/**
+ * 涓绘湇鍔′笂涓嬫枃
+ */
+export interface MainServerContext {
+  app: FastifyInstance;
+  runScheduler: RunScheduler;
+  runService: RunService;
+  sessionManager: SessionManager;
+  searchGateway: SearchGateway;
+  ingestionGateway: IngestionGateway;
+  memoryGateway: MemoryGateway;
+  tools: ToolDefinition[];
+}
+
+/**
+ * 鏋勫缓涓绘湇鍔? *
+ * 鍔熻兘璇存槑锛? * * 鍒濆鍖栧瓨鍌ㄣ€佽皟搴︺€佺綉鍏炽€佷簨浠惰浆鍙戝拰 websocket 灞? * * 娉ㄥ唽鍐呴儴浜嬩欢鍥炰紶鎺ュ彛
+ *
+ * @param options 鍚姩閫夐」
+ * @returns 涓绘湇鍔′笂涓嬫枃
+ */
+export function buildMainServer(options: MainServerOptions = {}): MainServerContext {
+  const app = Fastify({ logger: true });
+  const prismaModule = createPrismaModule();
+  const redisModule = createRedisModule();
+  const runtimeCacheService = new RuntimeCacheService(redisModule.redis);
+
+  const sessionStore = new InMemorySessionStore();
+  const runStore = new InMemoryRunStore();
+  const runQueue = new InMemoryRunQueue();
+  const agentRegistry = new InMemoryAgentRegistry();
+  const connectionManager = new ConnectionManager();
+  const knowledgeRepository = new KnowledgeRepository(prismaModule.prisma);
+  const retrievalLogRepository = new RetrievalLogRepository(prismaModule.prisma);
+  const vectorStoreConfig = getVectorStoreConfig();
+  const vectorStore = new LanceDbVectorStore(vectorStoreConfig);
+  const vectorIndexRepository = new VectorIndexRepository(vectorStore);
+  const searchService = new SearchService({
+    keywordAdapter: new KnowledgeKeywordSearchAdapter(knowledgeRepository),
+    vectorAdapter: new LanceDbVectorSearchAdapter(
+      knowledgeRepository,
+      vectorIndexRepository,
+    ),
+    rerankAdapter: new MockRerankAdapter(),
+    retrievalLogSink: new DatabaseRetrievalLogSink(retrievalLogRepository),
+  });
+  const searchGateway = new SearchGateway(searchService);
+  const modelCatalog = new InMemoryModelCatalog();
+  const modelInvokeService = new ModelInvokeService({
+    catalog: modelCatalog,
+    router: new ModelRouter(modelCatalog),
+    providerAdapter: new MockProviderAdapter(),
+    retryPolicy: new DefaultRetryPolicy(),
+    fallbackPolicy: new DefaultFallbackPolicy(),
+  });
+  const modelGateway = new ModelGateway(modelCatalog, modelInvokeService);
+  const runRepository = new RunRepository(prismaModule.prisma);
+  const runEventRepository = new RunEventRepository(prismaModule.prisma);
+  const toolCallLogRepository = new ToolCallLogRepository(prismaModule.prisma);
+  const modelInvokeLogRepository = new ModelInvokeLogRepository(prismaModule.prisma);
+  const auditLogRepository = new AuditLogRepository(prismaModule.prisma);
+  const recordsRepository = new RecordsRepository(prismaModule.prisma);
+  const plansRepository = new PlansRepository(prismaModule.prisma);
+  const userMetaRepository = new UserMetaRepository(prismaModule.prisma);
+  const memoryRepository = new MemoryRepository(prismaModule.prisma);
+
+  const auditLogService = new AuditLogService(auditLogRepository);
+  const userMetaService = new PersistentUserMetaService(
+    userMetaRepository,
+    auditLogService,
+  );
+  const memoryService = new PersistentMemoryService(
+    memoryRepository,
+    auditLogService,
+  );
+  const recordsService = new PersistentRecordsService(
+    recordsRepository,
+    auditLogService,
+  );
+  const plansService = new PersistentPlansService(plansRepository, auditLogService);
+  const runLogService = new RunLogService(runRepository, runEventRepository);
+  const toolCallLogService = new ToolCallLogService(toolCallLogRepository);
+  const modelInvokeLogService = new ModelInvokeLogService(modelInvokeLogRepository);
+  const memoryGateway = new MemoryGateway(
+    userMetaService,
+    memoryService,
+  );
+  const recordsPlansGateway = new RecordsPlansGateway(
+    recordsService,
+    plansService,
+  );
+  const tools: ToolDefinition[] = [
+    createSearchQueryTool(searchService),
+    createUserMetaWriteTool(userMetaService as never),
+    createUserMetaQueryTool(userMetaService as never),
+    createMemoryWriteTool(memoryService as never),
+    createMemorySearchTool(memoryService as never),
+    createMemorySummarizeTool(memoryService as never),
+    createRecordsWriteTool(recordsService as never),
+    createRecordsQueryTool(recordsService as never),
+    createRecordsUpdateTool(recordsService as never),
+    createPlansWriteTool(plansService as never),
+    createPlansQueryTool(plansService as never),
+    createPlansActivateTool(plansService as never),
+    createPlansPauseTool(plansService as never),
+    createPlansExpandTool(plansService as never),
+  ];
+  const ingestionTaskRepository = new IngestionTaskRepository(prismaModule.prisma);
+  const ingestionLogRepository = new IngestionLogRepository(prismaModule.prisma);
+  const ingestionTaskStore = new DatabaseIngestionTaskStore(
+    ingestionTaskRepository,
+    knowledgeRepository,
+  );
+  const knowledgeSourceStore = new DatabaseKnowledgeSourceStore(knowledgeRepository);
+  const ingestionService = new IngestionService({
+    taskStore: ingestionTaskStore,
+    sourceStore: knowledgeSourceStore,
+    logSink: new DatabaseIngestionLogSink(ingestionLogRepository),
+    parser: new DefaultTextParser(),
+    embedder: new DeterministicEmbedder(),
+    indexer: new VectorIndexWriter(knowledgeRepository, vectorIndexRepository),
+    publisher: new MockPublisher(knowledgeSourceStore),
+  });
+  const ingestionGateway = new IngestionGateway(ingestionService);
+
+  const sessionManager = new SessionManager(sessionStore);
+  const runService = new RunService(runStore, sessionStore);
+  const agentGateway = new AgentGateway();
+  const dispatchPolicy = new DefaultDispatchPolicy(
+    sessionStore,
+    runStore,
+    agentRegistry,
+  );
+  const runScheduler = new RunScheduler(
+    runQueue,
+    runStore,
+    sessionStore,
+    dispatchPolicy,
+    agentGateway,
+  );
+  const wsMessageHandler = new WsMessageHandler(
+    sessionManager,
+    runService,
+    runScheduler,
+    connectionManager,
+    runLogService,
+  );
+  const relayWithLogs = new EventRelay(
+    sessionManager,
+    connectionManager,
+    runService,
+    runLogService,
+  );
+  const wsServer = new RuntimeWsServer(
+    connectionManager,
+    sessionManager,
+    wsMessageHandler,
+  );
+
+  const defaultAgentRuntimeUrl =
+    options.defaultAgentRuntimeUrl ??
+    process.env.DEFAULT_AGENT_RUNTIME_URL ??
+    "http://127.0.0.1:4100";
+  const defaultAgentId = process.env.DEFAULT_AGENT_ID ?? "general.default";
+  void agentRegistry.register({
+    agentRuntimeId: "runtime-default",
+    agentId: defaultAgentId,
+    status: "healthy",
+    activeRuns: 0,
+    lastHeartbeatAt: new Date().toISOString(),
+    baseUrl: defaultAgentRuntimeUrl,
+  });
+
+  app.get("/api/health", async () => ({ ok: true }));
+  registerInternalSearchQueryRoute(app, searchGateway);
+  registerInternalToolRoutes(app, tools, toolCallLogService);
+  registerInternalModelRoutes(app, modelGateway, modelInvokeLogService);
+  registerInternalUserMetaWriteRoute(app, memoryGateway);
+  registerInternalUserMetaQueryRoute(app, memoryGateway);
+  registerInternalMemoryWriteRoute(app, memoryGateway);
+  registerInternalMemorySearchRoute(app, memoryGateway);
+  registerInternalMemorySummarizeRoute(app, memoryGateway);
+  registerInternalRecordsWriteRoute(app, recordsPlansGateway);
+  registerInternalRecordsQueryRoute(app, recordsPlansGateway);
+  registerInternalRecordsUpdateRoute(app, recordsPlansGateway);
+  registerInternalPlansWriteRoute(app, recordsPlansGateway);
+  registerInternalPlansQueryRoute(app, recordsPlansGateway);
+  registerInternalPlansActivateRoute(app, recordsPlansGateway);
+  registerInternalPlansPauseRoute(app, recordsPlansGateway);
+  registerInternalPlansExpandRoute(app, recordsPlansGateway);
+  registerIngestionUploadRoute(app, ingestionGateway);
+  registerIngestionParseRoute(app, ingestionGateway);
+  registerIngestionChunkRoute(app, ingestionGateway);
+  registerIngestionEmbedRoute(app, ingestionGateway);
+  registerIngestionIndexRoute(app, ingestionGateway);
+  registerIngestionPublishRoute(app, ingestionGateway);
+
+  app.post<{
+    Body: InternalRuntimeEventsRequest;
+  }>("/internal/runtime/events", async (request) => {
+    const body = request.body;
+    if (!body || !body.sessionId || !Array.isArray(body.events)) {
+      return { ok: false };
+    }
+    await relayWithLogs.relay(body.sessionId, body.events);
+    return { ok: true };
+  });
+
+  app.addHook("onReady", async () => {
+    await prismaModule.prisma.connect();
+    wsServer.install(app.server);
+    void runtimeCacheService;
+  });
+
+  app.addHook("onClose", async () => {
+    await prismaModule.prisma.disconnect();
+  });
+
+  return {
+    app,
+    runScheduler,
+    runService,
+    sessionManager,
+    searchGateway,
+    ingestionGateway,
+    memoryGateway,
+    tools,
+  };
+}
+
+/**
+ * 鍚姩涓绘湇鍔? *
+ * 鍔熻兘璇存槑锛? * * 鎸夌幆澧冨彉閲忔垨榛樿鍊煎惎鍔?main-server
+ *
+ * @returns void
+ */
+async function start(): Promise<void> {
+  const port = Number(process.env.PORT ?? 4000);
+  const host = process.env.HOST ?? "0.0.0.0";
+  const { app } = buildMainServer({ port, host });
+  await app.listen({ port, host });
+}
+
+if (require.main === module) {
+  void start();
+}
+
+
+===== LATEST VECTOR DEBUG LOGS TO INCLUDE =====
+[vector-store][debug]
+[vector-search][debug]
+

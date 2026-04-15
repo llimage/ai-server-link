@@ -1,0 +1,13 @@
+﻿node_modules/
+dist/
+build/
+.env
+.lancedb/
+*.log
+audit/**/*.tar.gz
+audit/**/05_commands_output.txt
+audit/**/06_error_files_bundle*
+apps/main-server/storage/
+packages/vector-store-core/storage/
+_tmp_*
+$null

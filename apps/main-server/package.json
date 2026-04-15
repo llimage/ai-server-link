@@ -1,0 +1,32 @@
+{
+  "name": "main-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/app.js",
+  "scripts": {
+    "dev": "tsx src/app.ts",
+    "build": "tsc -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs src"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "embedding-core": "workspace:*",
+    "fastify": "^5.1.0",
+    "ingestion-core": "workspace:*",
+    "memory-core": "workspace:*",
+    "model-core": "workspace:*",
+    "plans-core": "workspace:*",
+    "protocol": "workspace:*",
+    "records-core": "workspace:*",
+    "runtime-core": "workspace:*",
+    "scheduler-core": "workspace:*",
+    "search-core": "workspace:*",
+    "tool-core": "workspace:*",
+    "vector-store-core": "workspace:*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}

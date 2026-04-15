@@ -1,0 +1,8 @@
+Retrieval chain audit:
+- Embedding provider: DeterministicEmbeddingProvider (ingestion + search vector adapter).
+- Index writer: VectorIndexWriter writes VectorRecord {chunkId, documentId, sourceId, tenantId, text, embedding, metadata}.
+- Vector store (LanceDB): rows use flat tenantId field + vector field; metadata is sanitized (tenant_id removed).
+- Query path: vector-search.adapter -> vector-index.repository -> LanceDbVectorStore.query.
+- Tenant filtering: client-side filter in LanceDbVectorStore (no server-side where).
+- Published filter: vector-search.adapter filters by published chunk IDs from KnowledgeRepository.
+- Hybrid ranking: Reciprocal Rank Fusion (RRF, k=60) in search-core/hybrid-merge.ts.

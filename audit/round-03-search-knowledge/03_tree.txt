@@ -1,0 +1,36 @@
+D:\health-manager\ai-server-link
+├─ apps
+│  └─ main-server
+│     └─ src
+│        ├─ app.ts
+│        ├─ ingestion-routes.test.ts
+│        ├─ internal-tools.test.ts
+│        ├─ repositories
+│        │  ├─ ingestion-log.repository.ts
+│        │  ├─ ingestion-task.repository.ts
+│        │  ├─ knowledge.repository.ts
+│        │  └─ retrieval-log.repository.ts
+│        ├─ modules
+│        │  ├─ ingestion
+│        │  │  └─ services
+│        │  │     ├─ ingestion-log.sink.ts
+│        │  │     ├─ ingestion-task.store.ts
+│        │  │     └─ knowledge-source.store.ts
+│        │  └─ search
+│        │     └─ services
+│        │        ├─ knowledge-keyword-search.adapter.ts
+│        │        └─ retrieval-log.sink.ts
+│        └─ tests
+│           ├─ knowledge-test.utils.ts
+│           └─ search-knowledge.e2e.spec.ts
+├─ infrastructure
+│  └─ prisma
+│     └─ schema.prisma
+├─ packages
+│  └─ search-core
+│     └─ src
+│        ├─ retrieval-log.ts
+│        └─ search-service.ts
+└─ docs
+   └─ architecture
+      └─ search-and-knowledge-runtime.md

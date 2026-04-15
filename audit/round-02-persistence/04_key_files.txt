@@ -1,0 +1,16 @@
+﻿D:\health-manager\ai-server-link\apps\main-server\package.json
+D:\health-manager\ai-server-link\apps\main-server\src\app.ts
+D:\health-manager\ai-server-link\apps\main-server\src\ingestion-routes.test.ts
+D:\health-manager\ai-server-link\apps\main-server\src\internal-tools.test.ts
+D:\health-manager\ai-server-link\apps\main-server\src\memory-routes.test.ts
+D:\health-manager\ai-server-link\apps\main-server\src\model-routes.test.ts
+D:\health-manager\ai-server-link\apps\main-server\src\records-plans-routes.test.ts
+D:\health-manager\ai-server-link\apps\main-server\src\runtime-smoke.test.ts
+D:\health-manager\ai-server-link\apps\main-server\src\modules\runtime\tests\run-log.spec.ts
+D:\health-manager\ai-server-link\apps\main-server\src\modules\runtime\tests\tool-call-log.spec.ts
+D:\health-manager\ai-server-link\apps\main-server\src\modules\model\tests\model-invoke-log.spec.ts
+D:\health-manager\ai-server-link\apps\main-server\src\tests\persistence.e2e.spec.ts
+D:\health-manager\ai-server-link\apps\main-server\src\tests\persistence-test.utils.ts
+D:\health-manager\ai-server-link\infrastructure\prisma\schema.prisma
+D:\health-manager\ai-server-link\infrastructure\prisma\seed.ts
+D:\health-manager\ai-server-link\docs\architecture\persistence-and-runtime-storage.md

@@ -1,0 +1,301 @@
+继续当前 server 端，不做前端。
+
+当前状态：
+- 第1阶段（Server 内核 / Runtime / Tool / Model / WS 闭环）已完成
+- 第2阶段（数据库 + 持久化 + 日志落库 + 实库验证）已完成
+- 当前进入第3阶段：Search / Knowledge 真联通
+
+严格遵守：
+- 不做前端
+- 不做小程序
+- 不引入业务 domain
+- 不改既有核心架构
+- agent 不得直接访问数据库、向量库、memory store、provider
+- 所有能力仍然通过 Tool -> Main Server -> Core 暴露
+- 本轮重点是“Search / Knowledge 真联通”，不是做业务功能扩张
+
+==================================================
+一、本轮目标
+==================================================
+
+请完成第3阶段第一批真实接入，使 Search Core 与 Knowledge Ingestion 不再只是骨架或 mock，而是与数据库中的 knowledge 数据形成真实联动。
+
+本轮必须完成：
+
+1. Knowledge Ingestion 与数据库持久化联动
+2. Search Core 与 knowledge_documents / knowledge_chunks 真联通
+3. search.query 工具走真实检索链路
+4. retrieval log 落库
+5. ingestion 状态机落库
+6. integration tests / e2e tests
+7. 审计目录自动产出
+
+==================================================
+二、本轮范围
+==================================================
+
+本轮只做：
+
+- knowledge_sources / knowledge_documents / knowledge_chunks 的真实读写联动
+- upload -> parse -> chunk -> index -> publish 流程与数据库状态联动
+- search.query 真正从已发布 knowledge 数据中检索结果
+- retrieval log 持久化
+- 与现有 internal tools / routes / runtime 保持兼容
+
+本轮不要做：
+
+- ❌ 前端 / App
+- ❌ 向量数据库真实接入（LanceDB 下一小阶段再做）
+- ❌ 真实 embedding provider
+- ❌ 真实 rerank provider
+- ❌ OCR / 语音 / 短信 / 推送
+- ❌ planner / rule engine
+- ❌ 业务 domain 扩展
+
+==================================================
+三、实现要求：Knowledge Ingestion
+==================================================
+
+请把 ingestion pipeline 与数据库状态联通：
+
+流程：
+1. upload
+2. parse
+3. chunk
+4. index
+5. publish
+
+要求：
+
+1. knowledge_sources
+- upload 时创建 source
+- 状态至少包含：
+  - uploaded
+  - parsed
+  - chunked
+  - indexed
+  - published
+  - failed
+
+2. knowledge_documents
+- parse 后创建 document
+- title / metadata / status 落库
+
+3. knowledge_chunks
+- chunk 后写入数据库
+- chunkIndex / chunkText / tokenCount / metadata 落库
+
+4. publish
+- publish 后可被 search.query 检索
+- 未 publish 的内容不应进入正式检索结果
+
+5. 错误处理
+- 任一步失败时 source/document 状态应更新为 failed
+- 保留错误信息到 metadata 或 log
+
+==================================================
+四、实现要求：Search Core
+==================================================
+
+请将 Search Core 从 mock/骨架推进到“真实数据库检索”：
+
+1. search.query
+- 能从 knowledge_documents / knowledge_chunks 中检索结果
+- 当前阶段先实现：
+  - keyword search（必做）
+  - database-backed retrieval（必做）
+- vector search 仍可保留接口位，但不要求真实向量库接入
+
+2. query normalizer
+- 保留现有能力
+- 不破坏当前调用约定
+
+3. retrieval log
+- 每次 search.query 落 retrieval log
+- 至少记录：
+  - query
+  - normalizedQuery
+  - filters
+  - resultCount
+  - mode
+  - durationMs
+  - createdAt
+
+4. publish 过滤
+- 只检索 published knowledge
+
+5. 返回结构
+- 保持现有 tool / route 层兼容
+- 不要随意改 response contract
+
+==================================================
+五、Tool 接入要求
+==================================================
+
+请确保以下能力真实联通：
+
+1. search.query
+- internal tools execute 时真正进入 Search Core
+- 返回真实 knowledge hit
+
+2. ingestion admin routes
+- upload / parse / chunk / index / publish 与数据库联动
+- 不再只是内存态流程
+
+3. internal tools / routes / runtime
+- 不改既有主链路
+- 只替换底层实现为真实持久化检索链路
+
+==================================================
+六、建议目录与文件
+==================================================
+
+按现有项目风格补齐或更新，不要重复造轮子。
+
+重点会涉及：
+
+apps/main-server/src/
+- ingestion-routes.test.ts
+- internal-tools.test.ts
+- repositories/knowledge.repository.ts
+- modules/knowledge/services/knowledge.service.ts
+- modules/search/...（如果已有则沿用）
+- tests/search-knowledge.e2e.spec.ts（建议新增）
+
+packages/search-core/src/
+- search service
+- keyword retrieval adapter
+- retrieval log integration
+
+packages/ingestion-core/src/
+- ingestion service
+- parse/chunk/index/publish state transitions
+
+docs/architecture/
+- search-and-knowledge-runtime.md（建议新增）
+
+如果现有项目目录已经有对应文件，请沿用现有风格进行扩展，不要硬搬目录。
+
+==================================================
+七、测试要求（必须完成）
+==================================================
+
+请新增或补齐测试，确保“真实数据库 + 已发布知识”能被检索。
+
+必须至少覆盖：
+
+1. ingestion admin routes should run full pipeline
+- upload -> parse -> chunk -> index -> publish
+- 断言数据库中 source/document/chunk 状态正确
+
+2. search.query should return published knowledge hits
+- 写入测试知识
+- publish 后可搜到
+- 未 publish 不可搜到
+
+3. internal tools routes should expose and execute search with real knowledge hits
+- 经 /internal/tools/execute 调 search.query
+- 返回真实 hit
+
+4. search + knowledge e2e
+- 上传文本
+- 跑完整 ingestion
+- 执行 search.query
+- 断言结果命中 chunk/document/source
+
+5. retrieval log persistence
+- 检查 retrieval log 已落库
+
+要求：
+- corepack pnpm --filter main-server test
+- corepack pnpm -r test
+全部通过
+
+==================================================
+八、本轮完成标准（DoD）
+==================================================
+
+本轮完成必须满足：
+
+1. ingestion pipeline 与 knowledge 表真实联动
+2. upload/parse/chunk/index/publish 状态真实落库
+3. search.query 能真实检索 published knowledge
+4. internal tools 走真实 search 链路
+5. retrieval log 落库
+6. main-server 测试通过
+7. workspace 测试通过
+8. 审计目录完整生成
+
+==================================================
+九、审计产物要求（必须执行）
+==================================================
+
+完成开发后，请在仓库根目录生成：
+
+audit/round-03-search-knowledge/
+
+并输出：
+
+1. 01_task.txt
+- 写入本轮任务单原文
+
+2. 02_codex_reply.txt
+- 写入完整结果总结，包括：
+  - 本轮已完成内容
+  - 修改/新增文件
+  - 已执行验证
+  - 当前阻塞
+  - 风险与遗留
+  - 下一步建议
+
+3. 03_tree.txt
+- 写入当前项目目录树（与本轮相关部分即可）
+
+4. 04_key_files.txt
+- 写入本轮关键文件路径清单
+
+5. 05_commands_output.txt
+- 写入本轮实际执行的关键命令及其原始输出
+- 必须保留原始输出，不要只写摘要
+
+6. 07_risks.txt
+- 写入未完成项、阻塞项、风险点
+
+7. 08_notes.txt
+- 写入实现说明、必要上下文、与任务单不一致之处
+
+要求：
+- 证据类文件必须保留真实原始输出
+- 不允许只写“test passed”
+- 若某文件含非 UTF-8 历史内容，允许使用 PowerShell Add-Content 追加原始输出，但不得重写历史内容
+- 最终回复时必须列出审计目录文件清单
+
+==================================================
+十、最终回复要求
+==================================================
+
+请在回复中明确提供：
+
+1. 更新后的目录树
+2. 审计目录文件清单
+3. 本轮是否完成“Search / Knowledge 真联通”
+4. ingestion pipeline 是否真实落库
+5. search.query 是否已返回真实 knowledge hits
+6. retrieval log 是否落库
+7. 测试结果（pass/fail/skip）
+8. 当前阻塞与下一步建议
+
+==================================================
+十一、优先级
+==================================================
+
+优先顺序：
+
+1. ingestion 与数据库联动
+2. search.query 真检索
+3. publish 过滤
+4. retrieval log
+5. tests
+6. 审计目录
+
+==================================================

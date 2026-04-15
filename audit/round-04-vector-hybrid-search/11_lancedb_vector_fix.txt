@@ -1,0 +1,33 @@
+﻿原因：
+- LanceDB 默认使用固定向量列名进行 search，但当前写入字段名为 embedding
+- 表初始化时也使用 embedding 字段，导致 search 未命中 vector column
+
+修复：
+- 统一向量列名为 vector（VECTOR_COLUMN）
+- upsert 与 createTable 写入字段改为 vector
+- search 调用优先指定 vectorColumn=vector（失败则回退默认）
+
+影响范围：
+- 仅 vector-store-core（lancedb-vector-store.ts）
+补充（Round-04.7）：
+- 原因：DataFusion 对字段名大小写敏感，where 子句未加引号导致 tenantId 被解析为 tenantid
+- 修复：where 条件改为 "tenantId"，delete 条件改为 "chunkId"
+补充（Round-04.8）：
+- 将向量输入统一转为 Float32Array（写入与查询），避免 LanceDB 对 number[] 识别不一致
+补充（Round-04.9）：
+- 原因：LanceDB createTable 需要向量列为数组类型，Float32Array 被视为非数组导致 schema 推断失败
+- 修复：写入/建表/查询统一用 number[]（Array.from），不再传 Float32Array
+补充（Round-04.10）：
+- 原因：LanceDB 返回字段可能被下沉为小写（tenantid/chunkid），导致客户端过滤丢失命中
+- 修复：结果映射增加 tenantid/chunkid/documentid/sourceid 小写兼容
+补充（Round-04.11）：
+- 原因：LanceDB 查询返回行可能不含 tenantId 字段，导致客户端过滤误删全部命中
+- 修复：tenantId 映射增加 metadata 兜底；若行内无 tenantId，则跳过过滤
+补充（Round-04.12）：
+- 为定位空结果，临时增加日志：upsert rows、rowCount、query vectorLength/tenantId、rawRows、mapped results
+- 额外做了 createIndex 的 best-effort 调用（若支持）
+补充（Round-04.13）：
+- rowCount=2 原因：createTable 已包含首批记录，随后 upsert 再次 add 导致重复
+- rawRows=[] 原因：LanceDB where("tenantId"=...) 服务端过滤过严/字段不匹配
+- 修复：ensureTable 返回 created 标志，创建后跳过 add；去掉 where，改为客户端过滤；limit 提升至 max(limit*10,20)
+- 影响范围仅限 vector-store-core

@@ -1,0 +1,5 @@
+Notes:
+- vectors 表已创建且可查询；rowCount=1，列包含 id/vector/tenantId/text/metadata，vector 长度为 3。
+- vector 列名确认：vector（与查询列一致）。
+- 小数据路径使用 table.query().select(...) 扫描并做 cosine 排序。
+- pnpm -r test 首次因超时中断，随后使用更长超时重跑通过。

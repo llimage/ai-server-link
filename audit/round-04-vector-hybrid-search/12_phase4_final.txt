@@ -1,0 +1,15 @@
+﻿Phase 4 最终验收（Round-04.13）
+
+当前状态：
+- .env 已更新为 ai_health_manager
+- main-server 已引入 dotenv/config
+- pnpm 在当前 shell 不可用，无法执行 prisma/test 验收
+
+待完成（阻塞项）：
+- pnpm prisma:generate
+- pnpm prisma:migrate
+- pnpm --filter main-server test
+- pnpm -r test
+
+需要用户提供：
+- 可执行的 pnpm 路径或保证 PATH 中存在 pnpm

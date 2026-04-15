@@ -1,0 +1,18 @@
+Phase 5 changes:
+- packages/vector-store-core/src/lancedb-vector-store.ts
+  - Removed JSON fallback store.
+  - Implemented LanceDB read/write with flat tenantId field.
+  - Added small-dataset fallback using scan + cosine (rowCount < 20).
+  - Kept client-side tenant filtering and overfetch.
+- packages/search-core/src/hybrid-merge.ts
+  - Replaced weighted concat with Reciprocal Rank Fusion (RRF).
+- packages/search-core/src/hybrid-merge.test.ts
+  - Updated expectations for RRF ordering.
+- apps/main-server/src/modules/search/services/vector-search.adapter.ts
+  - Removed keyword fallback when vector hits are empty.
+- apps/main-server/src/tests/search-hybrid.e2e.spec.ts
+  - Assert real vector and keyword contributions + tenant isolation.
+- apps/main-server/src/internal-tools.test.ts
+  - Assert debug keywordHits/vectorHits >= 1 in hybrid.
+- apps/main-server/src/tests/knowledge-test.utils.ts
+  - Removed temporary logging used during ingestion debugging.

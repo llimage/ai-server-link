@@ -1,0 +1,74 @@
+﻿audit/round-02-persistence
+  01_task.txt
+  02_codex_reply.txt
+  03_tree.txt
+  04_key_files.txt
+  05_commands_output.txt
+  07_risks.txt
+  08_notes.txt
+
+apps/main-server/src/modules
+  runtime/
+    services/
+      run-log.service.ts
+      runtime-cache.service.ts
+      tool-call-log.service.ts
+    tests/
+      run-log.spec.ts
+      tool-call-log.spec.ts
+  model/
+    services/
+      model-handler.service.ts
+      model-invoke-log.service.ts
+    tests/
+      model-handler.service.test.ts
+      model-invoke-log.spec.ts
+  memory/
+    services/memory.service.ts
+    tests/memory.persistence.spec.ts
+  user-meta/
+    services/user-meta.service.ts
+    tests/user-meta.persistence.spec.ts
+  records/
+    services/records.service.ts
+    tests/records.persistence.spec.ts
+  plans/
+    services/plans.service.ts
+    tests/plans.persistence.spec.ts
+
+apps/main-server/src
+  app.ts
+  ingestion-routes.test.ts
+  internal-tools.test.ts
+  memory-routes.test.ts
+  model-routes.test.ts
+  records-plans-routes.test.ts
+  runtime-smoke.test.ts
+  tests/
+    persistence-test.utils.ts
+    persistence.e2e.spec.ts
+
+apps/main-server/src/repositories
+  run.repository.ts
+  run-event.repository.ts
+  tool-call-log.repository.ts
+  model-invoke-log.repository.ts
+  audit-log.repository.ts
+  records.repository.ts
+  plans.repository.ts
+  user-meta.repository.ts
+  memory.repository.ts
+  knowledge.repository.ts
+  stored-file.repository.ts
+  export-job.repository.ts
+
+infrastructure/prisma
+  schema.prisma
+  seed.ts
+
+docs/architecture
+  model-handler-core.md
+  persistence-and-runtime-storage.md
+
+package.json
+.env.example

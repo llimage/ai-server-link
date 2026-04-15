@@ -1,0 +1,4 @@
+Tests (local environment):
+- pnpm --filter main-server test -> failed (pnpm not found in this environment).
+- pnpm -r test -> failed (pnpm not found in this environment).
+Action required: run tests in the project environment with pnpm available.

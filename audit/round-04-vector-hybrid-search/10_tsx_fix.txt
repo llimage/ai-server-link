@@ -1,0 +1,6 @@
+﻿tsx --test src 在 Windows + tsx 环境下被解析为模块入口，
+导致尝试加载 src/index.json。
+
+修复方式：
+改为显式 glob：
+tsx --test "src/**/*.test.ts" "src/**/*.spec.ts"

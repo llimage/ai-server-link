@@ -1,0 +1,9 @@
+﻿Workspace root 检查：
+- 预期执行 pnpm root -w
+- 实际失败：corepack 缺失（MODULE_NOT_FOUND），无法确认 root
+
+已采取措施：
+- 记录阻塞，未执行删除 node_modules / pnpm store prune / pnpm install
+
+结论：
+- Workspace root 校验被环境阻塞，需恢复 corepack/pnpm 后再继续

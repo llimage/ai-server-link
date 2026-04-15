@@ -1,0 +1,19 @@
+﻿未完成项：
+1) 实库 migration 成功执行（被 DATABASE_URL 缺失阻塞）
+2) 实库 seed 成功执行（被 DATABASE_URL 缺失阻塞）
+3) 持久化测试从 skip 转为真实执行通过（依赖 DATABASE_URL）
+4) runs/run_events/tool_call_logs/model_invoke_logs 四表真实数据抽查（依赖 DATABASE_URL）
+
+阻塞项：
+- 当前执行会话读取不到 DATABASE_URL
+
+风险点：
+- 目前仅能确认“代码与测试框架就绪”，不能确认“实库闭环已通过”
+- 迁移与种子未完成前，数据库结构与数据基线无法作为发布依据
+
+【2026-04-13 追加】
+阻塞项：
+- 执行 main-server 与 workspace tests 时出现 spawn EPERM（权限/环境问题）
+
+风险点：
+- 在当前环境下无法完成“真实执行通过”的最终验收

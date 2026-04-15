@@ -1,0 +1,5 @@
+原因：
+tsx 在 Windows 下未展开 glob，传入字符串被当作模块入口解析，导致尝试加载 src/index.json。
+
+修复：
+统一改为 tsx --test src，不再传入 glob 模式参数，确保测试发现逻辑由 tsx 自行处理。

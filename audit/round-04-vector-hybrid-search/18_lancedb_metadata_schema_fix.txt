@@ -1,0 +1,15 @@
+根因：
+- metadata.tenant_id 字段触发 LanceDB/Arrow dictionary encoding，导致 schema mismatch
+
+修复：
+- 写入时扁平化 tenantId 字段
+- metadata 中移除 tenant_id/tenantId
+
+保持未回退的已验证修复：
+- createTable 后跳过 add
+- 不使用 LanceDB server-side tenant where 作为默认路径
+- 客户端 tenantId 过滤
+- overfetch = max(topK * 20, 50)
+
+影响范围：
+- 仅 vector-store-core

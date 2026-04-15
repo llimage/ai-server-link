@@ -1,0 +1,51 @@
+﻿本轮已完成内容（第2阶段收尾验收）：
+1) 已按要求执行：
+- pnpm prisma:migrate
+- pnpm db:seed
+- pnpm -r test
+
+2) 已执行日志表抽查命令（runs / run_events / tool_call_logs / model_invoke_logs）
+
+3) 已将本轮原始输出追加写入：
+- audit/round-02-persistence/05_commands_output.txt
+
+本轮结果：
+- prisma:migrate：失败（DATABASE_URL 缺失）
+- db:seed：失败（DATABASE_URL 缺失）
+- pnpm -r test：通过，但 main-server 持久化相关用例仍为 skip（22）
+- 日志表抽查：未能连库执行（DATABASE_URL 缺失）
+
+当前阻塞（唯一）：
+- DATABASE_URL 在当前执行会话中仍未生效
+
+风险与遗留：
+- 仍未形成“实库落地验收闭环”
+- 关键四表无法提供真实数据计数证据
+
+下一步建议（不新增功能）：
+1) 在同一执行会话显式注入 DATABASE_URL
+2) 重跑 pnpm prisma:migrate / pnpm db:seed / pnpm -r test
+3) 复跑四表计数抽查并写回 05_commands_output.txt
+
+【2026-04-13 追加】
+本轮修复内容：
+1) UserMetaRepository.upsertMany 改为基于 (userId, key) 的 upsert，避免 @@unique 冲突。
+2) 调整实库环境测试隔离：
+   - internal-tools / memory-routes / model-routes / user-meta.persistence / runtime-smoke / records-plans
+   - 使用独立 userId/sessionId/space/type，或改为包含性断言。
+
+已执行命令：
+- corepack pnpm --filter main-server test
+- corepack pnpm -r test
+
+执行结果：
+- main-server tests：失败（spawn EPERM）
+- workspace tests：失败（spawn EPERM）
+
+当前阻塞：
+- 测试运行时 spawn EPERM（环境/权限问题），导致用例在启动阶段失败。
+
+下一步建议（不新增功能）：
+1) 修复当前执行环境的进程 spawn 权限。
+2) 复跑 corepack pnpm --filter main-server test 与 corepack pnpm -r test。
+3) 将新的原始输出继续追加到 05_commands_output.txt。

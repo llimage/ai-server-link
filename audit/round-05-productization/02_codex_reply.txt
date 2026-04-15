@@ -1,0 +1,14 @@
+Summary: Fixed LanceDB write/query path in vector-store-core so vectors table is created when missing, vector column is consistent, and metadata/typed vectors are handled safely. Added vector dimension guard, rowCount guard, and ensured add() does not break when metadata column exists. Verified vectors table exists and contains data, and all required tests passed in the real environment.
+
+Key changes:
+- Vector store now creates the table on first write and throws a clear error if query runs before any rows exist.
+- Upsert preserves metadata schema (fills null when table already has metadata) to avoid Arrow conversion failures.
+- Query verifies vector column exists, checks dimension compatibility, and returns [] when table is empty.
+- Small dataset path uses table.query().select(...) scanning without LanceDB scan() API.
+
+Verification commands and outcomes (see 05_commands_output.txt for raw output):
+- TABLES query: vectors present.
+- ROW_COUNT query: >= 1 row with vector column present and length 3.
+- pnpm --filter vector-store-core test: pass.
+- pnpm --filter main-server test: pass.
+- pnpm -r test: pass.

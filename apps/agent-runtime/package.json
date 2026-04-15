@@ -1,0 +1,16 @@
+{
+  "name": "agent-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs src"
+  },
+  "dependencies": {
+    "fastify": "^5.1.0",
+    "protocol": "workspace:*"
+  }
+}

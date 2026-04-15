@@ -1,0 +1,17 @@
+apps/main-server/src/modules/ingestion/services/
+  embedding-provider.ts
+  vector-index.writer.ts
+apps/main-server/src/modules/search/services/
+  vector-search.adapter.ts
+apps/main-server/src/tests/
+  search-hybrid.e2e.spec.ts
+  knowledge-test.utils.ts
+apps/main-server/src/
+  internal-tools.test.ts
+packages/vector-store-core/src/
+  lancedb-vector-store.ts
+  vector-store-types.ts
+packages/search-core/src/
+  search-service.ts
+  hybrid-merge.ts
+  hybrid-merge.test.ts

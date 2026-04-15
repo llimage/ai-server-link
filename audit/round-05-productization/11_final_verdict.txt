@@ -1,0 +1,4 @@
+Final verdict (current environment):
+- Phase 5 is not fully complete until both test commands pass in the real environment.
+- Core code changes to remove hacks and implement real hybrid ranking are done.
+- Remaining work: run tests, verify LanceDB behavior in real data, and confirm retrieval quality.

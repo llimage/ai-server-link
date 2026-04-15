@@ -1,0 +1,17 @@
+关键文件清单：
+- D:\health-manager\ai-server-link\infrastructure\prisma\schema.prisma
+- D:\health-manager\ai-server-link\apps\main-server\src\app.ts
+- D:\health-manager\ai-server-link\apps\main-server\src\repositories\knowledge.repository.ts
+- D:\health-manager\ai-server-link\apps\main-server\src\repositories\ingestion-task.repository.ts
+- D:\health-manager\ai-server-link\apps\main-server\src\repositories\ingestion-log.repository.ts
+- D:\health-manager\ai-server-link\apps\main-server\src\repositories\retrieval-log.repository.ts
+- D:\health-manager\ai-server-link\apps\main-server\src\modules\ingestion\services\knowledge-source.store.ts
+- D:\health-manager\ai-server-link\apps\main-server\src\modules\ingestion\services\ingestion-task.store.ts
+- D:\health-manager\ai-server-link\apps\main-server\src\modules\ingestion\services\ingestion-log.sink.ts
+- D:\health-manager\ai-server-link\apps\main-server\src\modules\search\services\knowledge-keyword-search.adapter.ts
+- D:\health-manager\ai-server-link\apps\main-server\src\modules\search\services\retrieval-log.sink.ts
+- D:\health-manager\ai-server-link\packages\search-core\src\retrieval-log.ts
+- D:\health-manager\ai-server-link\packages\search-core\src\search-service.ts
+- D:\health-manager\ai-server-link\apps\main-server\src\tests\knowledge-test.utils.ts
+- D:\health-manager\ai-server-link\apps\main-server\src\tests\search-knowledge.e2e.spec.ts
+- D:\health-manager\ai-server-link\docs\architecture\search-and-knowledge-runtime.md

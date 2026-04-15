@@ -1,0 +1,6 @@
+Risks:
+1) LanceDB metadata column uses a struct schema. If future writers change metadata types or shapes, Arrow conversion errors can reappear. Current mitigation: fill nulls when metadata column exists.
+2) Vector dimension mismatches now throw clear errors; this is safer but still a potential runtime failure if embeddings change.
+3) Small dataset path scans via table.query().select(...) and cosine scoring; acceptable for low row counts only.
+4) Vector score mapping from LanceDB (_score/_distance) remains heuristic and could drift with engine changes.
+5) DeterministicEmbeddingProvider is test-only and not production-grade embeddings.

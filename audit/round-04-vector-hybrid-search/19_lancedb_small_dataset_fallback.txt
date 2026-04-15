@@ -1,0 +1,13 @@
+LanceDB 小数据量问题：
+- search().limit().toArray() 在小数据量时触发 ExecNode(Take) panic（index out of bounds）
+
+Fallback 触发条件：
+- rowCount < 10
+
+Fallback 实现方式：
+- table.toArray() 全表扫描
+- 手动计算 cosine similarity（dot / (|a| * |b|)）
+- 排序后再做 tenant 过滤并 slice topK
+
+大数据路径不受影响：
+- rowCount >= 10 仍走原有 LanceDB search + overfetch 逻辑

@@ -1,0 +1,76 @@
+﻿实现说明：
+- 通过 embedding-core 提供 deterministic embedding
+- 通过 vector-store-core 封装 LanceDB 读写
+- ingestion index 阶段写入 LanceDB；search.query 增加向量检索适配
+- retrieval log 扩展 keyword/vector/merged 命中统计字段
+
+必要上下文：
+- 本轮已尝试执行 pnpm install / prisma:migrate / tests，但受 spawn EPERM 影响失败
+- 未进行环境修复，按要求仅记录阻塞
+
+与任务单不一致之处：
+- 由于 migration 与 tests 失败，未能完成实测验收闭环
+
+补充：
+- 本轮 pnpm install 与 prisma:migrate 均因 EPERM 失败，导致依赖与迁移未完成
+
+补充：
+- 为避免 dist 缺失导致解析失败，已改为 exports 指向 src/index.ts（方案B）
+- 仍保留 build 脚本以便后续切回 dist
+
+补充（Round-04.2）：
+- 已将测试脚本改为 tsx --test src
+- 已在 vector-store-core 中用 any 解除 TS7006
+- 受 corepack 缺失影响，pnpm root -w 与 build/test 未能执行
+
+补充（direct pnpm 阶段）：
+- 已尝试直接 pnpm，但系统无 pnpm 可执行文件
+- Downloads\node-v24.14.1-x64 中 npm 依赖缺失，无法用 npm 安装 pnpm
+补充（Round-04.5）：
+- 已将所有 test 脚本改为显式 glob 以避免 tsx 解析 src/index.json
+- 直接 pnpm 不存在，仍无法执行测试链路
+补充（Round-04.6）：
+- LanceDB 向量列名统一为 vector，确保写入/建表/查询一致
+补充（Round-04.7）：
+- LanceDB where/delete 条件使用双引号包裹字段名，避免 tenantId 被解析为小写
+补充（Round-04.8）：
+- LanceDB 向量写入与查询统一使用 Float32Array
+补充（Round-04.9）：
+- LanceDB 向量列改为 number[] 以满足 schema 推断
+补充（Round-04.10）：
+- LanceDB 查询结果字段小写兼容处理，避免 tenantId 过滤为空
+补充（Round-04.11）：
+- tenantId 过滤增加兜底：metadata/空字段时不强行过滤
+补充（Round-04.12）：
+- 向量检索临时增加调试日志，便于定位空结果
+- upsert 后尝试 createIndex（best-effort）
+补充（Round-04.13）：
+- createTable 后跳过 add，避免重复写入
+- 去掉 LanceDB where 过滤，改为客户端 tenantId 过滤
+- 查询 limit 提升至 max(limit*10,20)
+补充（Round-04.14）：
+- 未采用 LanceDB server-side tenant where 作为默认修复：此前验证 where 会导致 rawRows 为空且 vector-store-core 单测失败
+- 保持已验证修复路径：createTable 后跳过 add、客户端 tenant 过滤、overfetch 查询策略
+- overfetch 提升为 max(limit*20,50) 以缓解其他 tenant 挤占
+补充（Round-04.14）：
+- ingestion index 失败改为记录 error.message/stack 到 ingestion_logs（通过 ingestion-core 统一错误消息）
+- 测试侧在 index 失败时打印 response body 以便采集证据
+补充（Round-04.15）：
+- 根因确认：metadata.tenant_id 字段触发 LanceDB/Arrow dictionary schema mismatch
+- 修复：写入前移除 metadata 中 tenant_id/tenantId，并使用扁平 tenantId 字段
+- 未回退已验证修复：createTable 后跳过 add、客户端 tenant 过滤、overfetch = max(topK*20,50)
+- 影响范围仅 vector-store-core
+补充（Round-04.13）：
+- .env 写入 ai_health_manager 数据库配置（通过 Set-Content，原因：原文件含 BOM 导致 apply_patch 失败）
+- main-server 入口引入 dotenv/config
+- 当前 shell 中 pnpm 不可用，无法执行 prisma 与 tests
+
+[Round-04.5] 统一测试脚本为 tsx --test src 以规避 Windows glob 不展开问题；未修改测试文件本身。
+
+[Round-04.5b] 新增 scripts/run-tests.mjs 作为自定义 test runner，并将所有包 test 脚本改为 node ../../scripts/run-tests.mjs src。
+
+[Round-04.5c] run-tests.mjs 增加 spawnSync error 输出，便于定位 tsx 未找到等执行失败原因。
+
+[Round-04.5d] run-tests.mjs 改为显式调用本地 node_modules/.bin/tsx(.cmd)，避免 spawn tsx ENOENT。
+
+[Round-04.5e] knowledge-source.store.ts 仅在 embeddings 未生成时落库 chunks，避免 index/publish 阶段重复删除并重建 chunk，保持向量索引 chunkId 对齐。

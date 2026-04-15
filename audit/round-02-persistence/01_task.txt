@@ -1,0 +1,247 @@
+﻿继续当前 server 端，不做前端。
+
+当前状态：
+- 第2阶段持久化基础骨架（schema / repository / prisma / redis / shared-types / 文档）已完成
+- 但尚未完成：
+  - repository 接入主链路
+  - run/model/tool/audit 日志落库
+  - migration / seed 实库验证
+  - persistence 行为测试
+- 本轮目标：完成“持久化接入 + 验证”，收尾第2阶段
+
+==================================================
+一、本轮目标（必须完成）
+==================================================
+
+请完成以下 4 件事：
+
+1. 将 records / plans / user-meta / memory 从内存实现切换为 repository 持久化实现
+2. 将 run / model / tool / audit 日志挂接到主链路并写入数据库
+3. 在提供 DATABASE_URL 的前提下，完成 migration + seed 验证
+4. 新增 persistence 测试，验证“数据真实写入数据库且可查询”
+
+==================================================
+二、持久化接入要求（核心）
+==================================================
+
+以下服务必须切换为 repository：
+
+1. records.service.ts
+- create / query 必须走 RecordsRepository
+
+2. plans.service.ts
+- create / query / update status 必须走 PlansRepository
+
+3. user-meta.service.ts
+- write/query 必须走 UserMetaRepository
+
+4. memory.service.ts
+- write/search/summarize 必须走 MemoryRepository
+
+要求：
+- 不允许保留旧的内存存储路径
+- 不允许绕过 repository 直接操作 Prisma
+- service 层只做编排，不做 SQL/ORM 操作
+
+==================================================
+三、日志落库（必须完成）
+==================================================
+
+将以下日志接入数据库：
+
+--------------------------------
+1. run lifecycle
+--------------------------------
+- run 创建 → 写入 runs 表
+- run 状态变化 → 更新 runs 表
+- 同时写入 run_events
+
+--------------------------------
+2. model invoke
+--------------------------------
+在 /internal/model/invoke 与 /stream：
+
+- 调用前：
+  - 创建 model_invoke_log（requestId / modelId / runId）
+
+- 成功：
+  - 回写 latency / usage / finishReason / attempts / success=true
+
+- 失败：
+  - success=false + errorMessage
+
+--------------------------------
+3. tool call
+--------------------------------
+- tool 执行前 → 创建 tool_call_log
+- 成功 → 更新 status / duration / resultSummary
+- 失败 → 更新 errorMessage
+
+--------------------------------
+4. audit log
+--------------------------------
+- 所有关键动作（写 meta / memory / plan 等）调用 audit-log.service
+
+要求：
+- 不修改现有响应结构
+- 不破坏 runtime / agent / model 调用链
+
+==================================================
+四、数据库验证（必须完成）
+==================================================
+
+在存在 DATABASE_URL 的前提下：
+
+1. 执行：
+- pnpm prisma:migrate
+- pnpm db:seed
+
+2. 验证：
+- 所有表成功创建
+- seed 数据可查询
+- 服务重启后数据仍存在
+
+==================================================
+五、Persistence 测试（必须新增）
+==================================================
+
+新增测试文件（或扩展现有）：
+
+1. records.persistence.spec.ts
+- create → query → assert 存在
+
+2. plans.persistence.spec.ts
+- create → update status → query → assert
+
+3. memory.persistence.spec.ts
+- write → search → summary → assert
+
+4. user-meta.persistence.spec.ts
+- write → query → assert
+
+5. run-log.spec.ts
+- run 创建 → run_event → assert DB
+
+6. tool-call-log.spec.ts
+- tool 调用 → assert DB
+
+7. model-invoke-log.spec.ts
+- invoke → assert DB
+
+8. persistence.e2e.spec.ts（关键）
+- 模拟完整流程：
+  user input → run → tool → model
+  → assert：
+    - runs
+    - run_events
+    - tool_call_logs
+    - model_invoke_logs
+    - records / plans / memory / meta
+
+==================================================
+六、禁止事项（必须遵守）
+==================================================
+
+本轮不要做：
+
+- ❌ 前端 / App / 小程序
+- ❌ reminder queue 深化
+- ❌ 向量数据库接入
+- ❌ 第三方 provider SDK
+- ❌ 业务 domain 扩展（health/medication 等）
+- ❌ 改动现有架构原则
+
+==================================================
+七、完成后必须生成审计目录（必须执行）
+==================================================
+
+请在仓库根目录创建：
+
+audit/round-02-persistence/
+
+并生成以下文件：
+
+--------------------------------
+1. 01_task.txt
+--------------------------------
+- 写入本轮任务单原文（完整复制）
+
+--------------------------------
+2. 02_codex_reply.txt
+--------------------------------
+包含：
+- 本轮已完成内容
+- 修改/新增文件
+- 已执行验证
+- 当前阻塞
+- 风险与遗留
+- 下一步建议
+
+--------------------------------
+3. 03_tree.txt
+--------------------------------
+- 当前项目目录树（与本轮相关部分即可）
+
+--------------------------------
+4. 04_key_files.txt
+--------------------------------
+- 本轮关键文件路径清单
+
+--------------------------------
+5. 05_commands_output.txt（非常关键）
+--------------------------------
+必须包含真实执行输出：
+
+- node -v
+- pnpm -v
+- pnpm install
+- pnpm prisma:generate
+- pnpm prisma:migrate
+- pnpm db:seed
+- pnpm -r build
+- pnpm -r test
+
+要求：
+- 保留原始终端输出
+- 不要只写总结
+
+--------------------------------
+6. 07_risks.txt
+--------------------------------
+- 未完成项
+- 阻塞项
+- 风险点
+
+--------------------------------
+7. 08_notes.txt
+--------------------------------
+- 实现说明
+- 与任务单不一致的地方
+- 必要上下文说明
+
+==================================================
+八、最终回复要求
+==================================================
+
+请在回复中提供：
+
+1. 更新后的目录树
+2. 审计目录文件清单
+3. 是否完成“持久化接入 + 验证”
+4. migration / seed 是否成功
+5. persistence 测试是否通过
+6. 是否还有阻塞项
+7. 下一步建议
+
+==================================================
+九、优先级说明
+==================================================
+
+优先顺序：
+
+1. repository 接入（最重要）
+2. 日志落库
+3. migration / seed
+4. persistence 测试
+5. 审计目录
+==================================================

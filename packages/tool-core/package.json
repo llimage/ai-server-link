@@ -1,0 +1,19 @@
+{
+  "name": "tool-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node ../../scripts/run-tests.mjs src"
+  },
+  "dependencies": {
+    "memory-core": "workspace:*",
+    "plans-core": "workspace:*",
+    "protocol": "workspace:*",
+    "records-core": "workspace:*",
+    "search-core": "workspace:*"
+  }
+}
