@@ -8,7 +8,6 @@ if (!(Test-Path "audit")) {
     New-Item -ItemType Directory -Path "audit" | Out-Null
 }
 
-# 找已有 round 目录
 $roundDirs = Get-ChildItem "audit" -Directory -ErrorAction SilentlyContinue | Where-Object {
     $_.Name -match '^round-(\d+)'
 }
@@ -29,7 +28,6 @@ if ($nums.Count -gt 0) {
     }
 }
 
-# 不再用 {0:D2}，直接用 PadLeft，避免格式化坑
 $roundNum = ([string]$next).PadLeft(2, '0')
 $roundName = "round-$roundNum-$name"
 $path = Join-Path "audit" $roundName
